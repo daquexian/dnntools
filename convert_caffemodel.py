@@ -28,9 +28,10 @@ SOFTMAX = 5
 INPUT = 6
 MUL = 7
 ADD = 8
+RELU = 9
 
-NONE = 0
-RELU = 1
+ACTIVATION_NONE = 0
+ACTIVATION_RELU = 1
 
 PARAM_END = 0
 PADDING_LEFT = 1
@@ -52,15 +53,20 @@ STRING_END = 0
 
 TENSOR_OP = 0
 SCALAR_OP = 1
+ARRAY_OP = 2    # 1d array, for batchnorm
 
 ELTWISE_PROD = 0
 ELTWISE_SUM = 1
 ELTWISE_MAX = 2
 
-supported_type = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'Softmax']
+supported_type = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise', 'BatchNorm']
 supported_activation = ['ReLU']
 
 skipped_layers = []
+
+def blob_index(blob_name):
+    # blobIndex(blob_name)
+    return len(blobs) - blobs[-1::-1].index(blob_name) - 1
 
 def add_max_pool(f, bottom, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
                  activation):
@@ -103,6 +109,10 @@ def add_FC(f, bottom, num_output, activation, weight, bias=None):
             f.write(bin_float(x))
 
 
+def add_ReLU(f, bottom):
+    write_bin_int_seq(f, [RELU, bottom])
+
+
 def add_softmax(f, bottom, beta):
     write_bin_int_seq(f, [SOFTMAX, bottom, BETA, beta])
 
@@ -113,6 +123,10 @@ def add_add(f, input1, input2_type, input2):
         f.write(bin_int(input2))
     elif input2_type == SCALAR_OP:
         f.write(bin_float(input2))
+    elif input2_type == ARRAY_OP:
+        f.write(bin_float(len(input2.flatten())))
+        for x in input2.flatten():
+            f.write(bin_float(x))
 
 
 def add_mul(f, input1, input2_type, input2):
@@ -121,6 +135,10 @@ def add_mul(f, input1, input2_type, input2):
         f.write(bin_int(input2))
     elif input2_type == SCALAR_OP:
         f.write(bin_float(input2))
+    elif input2_type == ARRAY_OP:
+        f.write(bin_float(len(input2.flatten())))
+        for x in input2.flatten():
+            f.write(bin_float(x))
 
 
 def bin_int(n):
@@ -141,25 +159,27 @@ def findInplaceActivation(blob_name):
         top = layer.top[0].encode('ascii', 'ignore')
         if len(layer.bottom) == 0 or layer.bottom[0].encode('ascii', 'ignore') != blob_name:
             continue
+        if layer.name in skipped_layers:
+            continue
         if layer.type == 'ReLU':
             if top != blob_name:
                 continue
             print "RELU", blob_name
-            f.write(bin_int(RELU))
+            f.write(bin_int(ACTIVATION_RELU))
             skipped_layers.append(layer.name)
-            return RELU
+            return ACTIVATION_RELU
     else:
-        return NONE
+        return ACTIVATION_NONE
 
 
 for i, layer in enumerate(params.layer):
-    top = layer.top[0].encode('ascii', 'ignore')
-
-    if layer.type not in supported_type and layer.type not in supported_activation:
+    if layer.type not in supported_type:
         raise ValueError("Not supported layer " + layer.type)
 
-    if layer.type not in supported_type:
+    if layer.name in skipped_layers:
         continue
+
+    top = layer.top[0].encode('ascii', 'ignore')
 
     if i == 0:
         if layer.type != "Input":
@@ -187,7 +207,7 @@ for i, layer in enumerate(params.layer):
         bias = net.params[layer.name][1].data if param.bias_term else None
         activation = findInplaceActivation(top)
 
-        add_conv(f, blobs.index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+        add_conv(f, blob_index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
                  param.num_output, activation, swapped_weights, bias)
 
 
@@ -204,10 +224,10 @@ for i, layer in enumerate(params.layer):
         activation = findInplaceActivation(top)
 
         if param.pool == CAFFE_POOL_MAX:
-            add_max_pool(f, blobs.index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
+            add_max_pool(f, blob_index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
                          filter_height, filter_width, activation)
         elif param.pool == CAFFE_POOL_AVE:
-            add_ave_pool(f, blobs.index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
+            add_ave_pool(f, blob_index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
                          filter_height, filter_width, activation)
         else:
             raise ValueError("Not supported pool type")
@@ -229,11 +249,18 @@ for i, layer in enumerate(params.layer):
             bias = net.params[layer.name][1].data
         activation = findInplaceActivation(top)
 
-        add_FC(f, blobs.index(bottom), param.num_output, activation, weights, bias)
+        add_FC(f, blob_index(bottom), param.num_output, activation, weights, bias)
+
+    elif layer.type == 'ReLU':
+        bottom = layer.bottom[0].encode('ascii', 'ignore')
+        param = layer.relu_param
+        if param.negative_slope != 0:
+            raise ValueError("Non-zero ReLU's negative slope is not supported")
+        add_ReLU(f, blob_index(bottom))
 
     elif layer.type == 'Softmax':
         bottom = layer.bottom[0].encode('ascii', 'ignore')
-        add_softmax(f, blobs.index(bottom), 1.)
+        add_softmax(f, blob_index(bottom), 1.)
 
     elif layer.type == 'Dropout':
         bottom = layer.bottom[0].encode('ascii', 'ignore')
@@ -245,12 +272,23 @@ for i, layer in enumerate(params.layer):
         bottom1 = layer.bottom[1].encode('ascii', 'ignore')
         param = layer.eltwise_param
         if param.operation == ELTWISE_SUM:
-            add_add(f, blobs.index(bottom0), TENSOR_OP, blobs.index(bottom1))
+            add_add(f, blob_index(bottom0), TENSOR_OP, blob_index(bottom1))
         elif param.operation == ELTWISE_PROD:
-            add_mul(f, blobs.index(bottom0), TENSOR_OP, blobs.index(bottom1))
+            add_mul(f, blob_index(bottom0), TENSOR_OP, blob_index(bottom1))
         else:
             raise ValueError("Unsupported EltwiseOp " + str(param.operation))
 
+    elif layer.type == 'BatchNorm':
+        bottom = layer.bottom[0].encode('ascii', 'ignore')
+        scale_factor = net.params[layer.name][2].data[0]
+        mean = net.params[layer.name][0].data / scale_factor
+        var = net.params[layer.name][1].data / scale_factor
+
+        add_add(f, blob_index(bottom), ARRAY_OP, -mean)
+        # Append bottom into blobs so that the mul will use a new index as input
+        # It will be the index of output blob of add
+        blobs.append(bottom)
+        add_mul(f, blob_index(bottom), ARRAY_OP, np.sqrt(var))
 
     f.write(bin_int(TOP_NAME))
     for c in top:
@@ -260,8 +298,10 @@ for i, layer in enumerate(params.layer):
     f.write(bin_int(STRING_END))
 
     f.write(bin_int(PARAM_END))
-    if top not in blobs:
-        blobs.append(top)
+
+    # Append the name of top even when the top is the same as bottom
+    # Convert in-place to non in-place in this way
+    blobs.append(top)
 
 f.write(bin_int(LAYER_END))
 
