@@ -8,12 +8,12 @@ import numpy as np
 import struct
 
 params = caffe_pb2.NetParameter()
-with open('resnet18.prototxt') as f:
+with open(sys.argv[1]) as f:
     text_format.Merge(f.read(), params)
 
-net = caffe.Net('./resnet18.prototxt', './resnet18.caffemodel', caffe.TEST)
+net = caffe.Net(sys.argv[1], sys.argv[2], caffe.TEST)
 
-out_filename = sys.argv[1] if len(sys.argv) > 1 else 'dqx'
+out_filename = sys.argv[1] if len(sys.argv) > 1 else 'nnmodel'
 f = open(out_filename, 'wb')
 
 blobs = []
@@ -150,7 +150,8 @@ def add_ReLU(f, bottom, top_name):
 
 
 def add_softmax(f, bottom, top_name, beta):
-    write_bin_int_seq(f, [SOFTMAX, bottom, BETA, beta])
+    write_bin_int_seq(f, [SOFTMAX, bottom, BETA])
+    f.write(bin_float(beta))
 
     layer_end(top_name)
 
@@ -318,7 +319,7 @@ for i, layer in enumerate(params.layer):
         bottom_name = layer.bottom[0].encode('ascii', 'ignore')
         scale_factor = net.params[layer.name][2].data[0]
         mean = net.params[layer.name][0].data / scale_factor
-        var = net.params[layer.name][1].data / scale_factor + 10e-10
+        var = net.params[layer.name][1].data / scale_factor + 1e-5
 
         add_add(f, blob_index(bottom_name), ARRAY_OP, -mean, top_name)
         # Append top into blobs so that the mul will use a new index as input
