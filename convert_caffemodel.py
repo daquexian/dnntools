@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 import sys
 from google.protobuf import text_format
 from caffe.proto import caffe_pb2
@@ -6,12 +8,13 @@ import numpy as np
 import struct
 
 params = caffe_pb2.NetParameter()
-with open('lenet.prototxt') as f:
+with open('resnet18.prototxt') as f:
     text_format.Merge(f.read(), params)
 
-net = caffe.Net('lenet.prototxt', './lenet_iter_10000.caffemodel', caffe.TEST)
+net = caffe.Net('./resnet18.prototxt', './resnet18.caffemodel', caffe.TEST)
 
-f = open(sys.argv[1], 'wb')
+out_filename = sys.argv[1] if len(sys.argv) > 1 else 'dqx'
+f = open(out_filename, 'wb')
 
 blobs = []
 
@@ -59,28 +62,55 @@ ELTWISE_PROD = 0
 ELTWISE_SUM = 1
 ELTWISE_MAX = 2
 
-supported_type = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise', 'BatchNorm']
+supported_type = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
+                  'BatchNorm', 'Scale']
 supported_activation = ['ReLU']
 
 skipped_layers = []
 
 def blob_index(blob_name):
-    # blobIndex(blob_name)
+    # blob.rIndex(blob_name)
     return len(blobs) - blobs[-1::-1].index(blob_name) - 1
 
-def add_max_pool(f, bottom, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+
+def layer_end(blob_name):
+    f.write(bin_int(TOP_NAME))
+    for c in blob_name:
+        # write as int
+        f.write(bin_int(ord(c)))
+
+    f.write(bin_int(STRING_END))
+
+    f.write(bin_int(PARAM_END))
+
+    # Append the name of top even when the top is the same as bottom
+    # Convert in-place to non in-place in this way
+    blobs.append(blob_name)
+
+
+def add_input(f, top_name, dim):
+    f.write(bin_int(INPUT))
+    for d in dim:
+        f.write(bin_int(d))
+
+    layer_end(top_name)
+
+
+def add_max_pool(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
                  activation):
     write_bin_int_seq(f, [MAX_POOL, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top, PADDING_BOTTOM,
                           pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
                           FILTER_WIDTH, filter_width, ACTIVATION, activation])
+    layer_end(top_name)
 
-def add_ave_pool(f, bottom, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+def add_ave_pool(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
                  activation):
     write_bin_int_seq(f, [AVE_POOL, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
                           PADDING_BOTTOM, pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
                           FILTER_WIDTH, filter_width, ACTIVATION, activation])
+    layer_end(top_name)
 
-def add_conv(f, bottom, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+def add_conv(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
              num_output, activation, weight, bias=None):
     write_bin_int_seq(f, [CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top, PADDING_BOTTOM,
                           pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
@@ -95,8 +125,10 @@ def add_conv(f, bottom, pad_left, pad_right, pad_top, pad_bottom, stride_x, stri
         for x in bias.flatten():
             f.write(bin_float(x))
 
+    layer_end(top_name)
 
-def add_FC(f, bottom, num_output, activation, weight, bias=None):
+
+def add_FC(f, bottom, top_name, num_output, activation, weight, bias=None):
     write_bin_int_seq(f, [FC, bottom, NUM_OUTPUT, num_output, ACTIVATION, activation])
 
     f.write(bin_int(WEIGHT))
@@ -108,37 +140,47 @@ def add_FC(f, bottom, num_output, activation, weight, bias=None):
         for x in bias.flatten():
             f.write(bin_float(x))
 
+    layer_end(top_name)
 
-def add_ReLU(f, bottom):
+
+def add_ReLU(f, bottom, top_name):
     write_bin_int_seq(f, [RELU, bottom])
 
+    layer_end(top_name)
 
-def add_softmax(f, bottom, beta):
+
+def add_softmax(f, bottom, top_name, beta):
     write_bin_int_seq(f, [SOFTMAX, bottom, BETA, beta])
 
+    layer_end(top_name)
 
-def add_add(f, input1, input2_type, input2):
+
+def add_add(f, input1, input2_type, input2, top_name):
     write_bin_int_seq(f, [ADD, input1, input2_type])
     if input2_type == TENSOR_OP:
         f.write(bin_int(input2))
     elif input2_type == SCALAR_OP:
         f.write(bin_float(input2))
     elif input2_type == ARRAY_OP:
-        f.write(bin_float(len(input2.flatten())))
+        f.write(bin_int(len(input2.flatten())))
         for x in input2.flatten():
             f.write(bin_float(x))
 
+    layer_end(top_name)
 
-def add_mul(f, input1, input2_type, input2):
+
+def add_mul(f, input1, input2_type, input2, top_name):
     write_bin_int_seq(f, [MUL, input1, input2_type])
     if input2_type == TENSOR_OP:
         f.write(bin_int(input2))
     elif input2_type == SCALAR_OP:
         f.write(bin_float(input2))
     elif input2_type == ARRAY_OP:
-        f.write(bin_float(len(input2.flatten())))
+        f.write(bin_int(len(input2.flatten())))
         for x in input2.flatten():
             f.write(bin_float(x))
+
+    layer_end(top_name)
 
 
 def bin_int(n):
@@ -154,22 +196,20 @@ def write_bin_int_seq(f, l):
         f.write(bin_int(x))
 
 
-def findInplaceActivation(blob_name):
-    for layer in params.layer:
-        top = layer.top[0].encode('ascii', 'ignore')
-        if len(layer.bottom) == 0 or layer.bottom[0].encode('ascii', 'ignore') != blob_name:
+def findInplaceActivation(layer_name):
+    for i, layer in enumerate(params.layer):
+        if layer.name != layer_name:
             continue
-        if layer.name in skipped_layers:
-            continue
-        if layer.type == 'ReLU':
-            if top != blob_name:
-                continue
-            print "RELU", blob_name
-            f.write(bin_int(ACTIVATION_RELU))
-            skipped_layers.append(layer.name)
-            return ACTIVATION_RELU
-    else:
-        return ACTIVATION_NONE
+        top_blob_name = layer.top[0].encode('ascii', 'ignore')
+        for j in range(i + 1, len(params.layer)):
+            layerJ = params.layer[j]
+            if layerJ.top[0].encode('ascii', 'ignore') == top_blob_name:
+                if layerJ.type == 'ReLU':
+                    print "RELU", layer_name
+                    skipped_layers.append(layerJ.name)
+                    return ACTIVATION_RELU
+                break
+    return ACTIVATION_NONE
 
 
 for i, layer in enumerate(params.layer):
@@ -179,22 +219,20 @@ for i, layer in enumerate(params.layer):
     if layer.name in skipped_layers:
         continue
 
-    top = layer.top[0].encode('ascii', 'ignore')
+    top_name = layer.top[0].encode('ascii', 'ignore')
 
     if i == 0:
         if layer.type != "Input":
             raise ValueError("First layer should be input")
 
-        f.write(bin_int(INPUT))
         param = layer.input_param
-        for dim in param.shape[0].dim:
-            f.write(bin_int(dim))
+        add_input(f, top_name, param.shape[0].dim)
 
 
     elif layer.type == 'Convolution':
-        bottom = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
         param = layer.convolution_param
-        pad = param.pad if param.pad != [] else 0
+        pad = param.pad[0] if param.pad != [] else 0
         pad_left = pad_right = pad_top = pad_bottom = pad
         stride = param.stride[0] if param.stride != [] else 1
         stride_x = stride_y = stride
@@ -204,16 +242,16 @@ for i, layer in enumerate(params.layer):
         weights = net.params[layer.name][0].data
         swapped_weights = np.swapaxes(np.swapaxes(weights, 1, 3), 1, 2)
 
-        bias = net.params[layer.name][1].data if param.bias_term else None
-        activation = findInplaceActivation(top)
+        bias = net.params[layer.name][1].data if param.bias_term else None #np.zeros(swapped_weights.shape[0])
+        activation = findInplaceActivation(top_name)
 
-        add_conv(f, blob_index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+        add_conv(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
                  param.num_output, activation, swapped_weights, bias)
 
 
     elif layer.type == 'Pooling':
         param = layer.pooling_param
-        bottom = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
 
         pad = param.pad
         pad_left = pad_right = pad_top = pad_bottom = pad
@@ -221,13 +259,13 @@ for i, layer in enumerate(params.layer):
         stride_x = stride_y = stride
         kernel_size = param.kernel_size
         filter_height = filter_width = kernel_size
-        activation = findInplaceActivation(top)
+        activation = findInplaceActivation(top_name)
 
         if param.pool == CAFFE_POOL_MAX:
-            add_max_pool(f, blob_index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
+            add_max_pool(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
                          filter_height, filter_width, activation)
         elif param.pool == CAFFE_POOL_AVE:
-            add_ave_pool(f, blob_index(bottom), pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
+            add_ave_pool(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
                          filter_height, filter_width, activation)
         else:
             raise ValueError("Not supported pool type")
@@ -235,73 +273,66 @@ for i, layer in enumerate(params.layer):
 
 
     elif layer.type == 'InnerProduct':
-        bottom = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
         param = layer.inner_product_param
-        input_dim = list(net.blobs[bottom].data.shape)
+        input_dim = list(net.blobs[bottom_name].data.shape)
         weights = net.params[layer.name][0].data
+        num_output = param.num_output
         if len(input_dim) == 4:
             input_dim[0] = param.num_output
             weights = weights.reshape(input_dim)
             weights = np.swapaxes(np.swapaxes(weights, 1, 3), 1, 2)
-        bias = None
-        if param.bias_term:
-            f.write(bin_int(BIAS))
-            bias = net.params[layer.name][1].data
-        activation = findInplaceActivation(top)
+        bias = net.params[layer.name][1].data if param.bias_term else None #np.zeros(num_output)
+        activation = findInplaceActivation(top_name)
 
-        add_FC(f, blob_index(bottom), param.num_output, activation, weights, bias)
+        add_FC(f, blob_index(bottom_name), top_name, num_output, activation, weights, bias)
 
     elif layer.type == 'ReLU':
-        bottom = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
         param = layer.relu_param
         if param.negative_slope != 0:
             raise ValueError("Non-zero ReLU's negative slope is not supported")
-        add_ReLU(f, blob_index(bottom))
+        add_ReLU(f, blob_index(bottom_name), top_name)
 
     elif layer.type == 'Softmax':
-        bottom = layer.bottom[0].encode('ascii', 'ignore')
-        add_softmax(f, blob_index(bottom), 1.)
+        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        add_softmax(f, blob_index(bottom_name), top_name, 1.)
 
     elif layer.type == 'Dropout':
-        bottom = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
         param = layer.dropout_param
-        add_mul(f, bottom, SCALAR_OP, 1 - param.dropout_radio)
+        add_mul(f, bottom_name, SCALAR_OP, 1 - param.dropout_radio, top_name)
 
     elif layer.type == 'Eltwise':
         bottom0 = layer.bottom[0].encode('ascii', 'ignore')
         bottom1 = layer.bottom[1].encode('ascii', 'ignore')
         param = layer.eltwise_param
         if param.operation == ELTWISE_SUM:
-            add_add(f, blob_index(bottom0), TENSOR_OP, blob_index(bottom1))
+            add_add(f, blob_index(bottom0), TENSOR_OP, blob_index(bottom1), top_name)
         elif param.operation == ELTWISE_PROD:
-            add_mul(f, blob_index(bottom0), TENSOR_OP, blob_index(bottom1))
+            add_mul(f, blob_index(bottom0), TENSOR_OP, blob_index(bottom1), top_name)
         else:
             raise ValueError("Unsupported EltwiseOp " + str(param.operation))
 
     elif layer.type == 'BatchNorm':
-        bottom = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
         scale_factor = net.params[layer.name][2].data[0]
         mean = net.params[layer.name][0].data / scale_factor
-        var = net.params[layer.name][1].data / scale_factor
+        var = net.params[layer.name][1].data / scale_factor + 10e-10
 
-        add_add(f, blob_index(bottom), ARRAY_OP, -mean)
-        # Append bottom into blobs so that the mul will use a new index as input
+        add_add(f, blob_index(bottom_name), ARRAY_OP, -mean, top_name)
+        # Append top into blobs so that the mul will use a new index as input
         # It will be the index of output blob of add
-        blobs.append(bottom)
-        add_mul(f, blob_index(bottom), ARRAY_OP, np.sqrt(var))
+        add_mul(f, blob_index(top_name), ARRAY_OP, 1 / np.sqrt(var), top_name)
 
-    f.write(bin_int(TOP_NAME))
-    for c in top:
-        # write as int
-        f.write(bin_int(ord(c)))
-
-    f.write(bin_int(STRING_END))
-
-    f.write(bin_int(PARAM_END))
-
-    # Append the name of top even when the top is the same as bottom
-    # Convert in-place to non in-place in this way
-    blobs.append(top)
+    elif layer.type == 'Scale':
+        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        param = layer.scale_param
+        multipiler = net.params[layer.name][0].data
+        add_mul(f, blob_index(bottom_name), ARRAY_OP, multipiler, top_name)
+        if param.bias_term:
+            bias = net.params[layer.name][1].data
+            add_add(f, blob_index(top_name), ARRAY_OP, bias, top_name)
 
 f.write(bin_int(LAYER_END))
 
