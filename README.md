@@ -9,3 +9,5 @@ Install caffe and pycaffe first.
 ```
 ./caffe2daq.py [prototxt] [caffemodel]
 ```
+
+It is WIP from some aspects -- not all layers and properties are support. But I might not have much time to continue working on it. So any PR is welcome.
