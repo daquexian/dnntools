@@ -13,7 +13,7 @@ with open(sys.argv[1]) as f:
 
 net = caffe.Net(sys.argv[1], sys.argv[2], caffe.TEST)
 
-out_filename = sys.argv[1] if len(sys.argv) > 1 else 'nnmodel'
+out_filename = sys.argv[3] if len(sys.argv) > 3 else 'nnmodel'
 f = open(out_filename, 'wb')
 
 blobs = []
