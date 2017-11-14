@@ -302,7 +302,7 @@ for i, layer in enumerate(params.layer):
     elif layer.type == 'Dropout':
         bottom_name = layer.bottom[0].encode('ascii', 'ignore')
         param = layer.dropout_param
-        add_mul(f, bottom_name, SCALAR_OP, 1 - param.dropout_radio, top_name)
+        add_mul(f, blob_index(bottom_name), SCALAR_OP, 1 - param.dropout_ratio, top_name)
 
     elif layer.type == 'Eltwise':
         bottom0 = layer.bottom[0].encode('ascii', 'ignore')
