@@ -32,6 +32,7 @@ INPUT = 6
 MUL = 7
 ADD = 8
 RELU = 9
+CONCAT = 10
 
 ACTIVATION_NONE = 0
 ACTIVATION_RELU = 1
@@ -63,7 +64,7 @@ ELTWISE_SUM = 1
 ELTWISE_MAX = 2
 
 supported_type = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
-                  'BatchNorm', 'Scale']
+                  'BatchNorm', 'Scale', 'Concat']
 supported_activation = ['ReLU']
 
 skipped_layers = []
@@ -182,6 +183,15 @@ def add_mul(f, input1, input2_type, input2, top_name):
             f.write(bin_float(x))
 
     layer_end(top_name)
+
+
+def add_concat(f, input1, input2, top_name, axis):
+    if axis == 1:
+        write_bin_int_seq(f, [CONCAT, 2, input1, input2, 3])
+
+        layer_end(top_name)
+    else:
+        raise ValueError("Unsupported concat layer's axis")
 
 
 def bin_int(n):
@@ -334,6 +344,15 @@ for i, layer in enumerate(params.layer):
         if param.bias_term:
             bias = net.params[layer.name][1].data
             add_add(f, blob_index(top_name), ARRAY_OP, bias, top_name)
+
+    elif layer.type == 'Concat':
+        bottom0 = layer.bottom[0].encode('ascii', 'ignore')
+        bottom1 = layer.bottom[1].encode('ascii', 'ignore')
+        param = layer.concat_param
+        if param.axis != 1:
+            raise ValueError("Unsupported concat layer's axis " + str(param.axis))
+        add_concat(f, blob_index(bottom0), blob_index(bottom1), top_name, param.axis)
+
 
 f.write(bin_int(LAYER_END))
 
