@@ -269,7 +269,10 @@ for i, layer in enumerate(params.layer):
         pad_left = pad_right = pad_top = pad_bottom = pad
         stride = param.stride
         stride_x = stride_y = stride
-        kernel_size = param.kernel_size
+        if param.global_pooling:
+            kernel_size = -1
+        else:
+            kernel_size = param.kernel_size
         filter_height = filter_width = kernel_size
         activation = findInplaceActivation(top_name)
 
