@@ -314,9 +314,7 @@ for i, layer in enumerate(params.layer):
         add_softmax(f, blob_index(bottom_name), top_name, 1.)
 
     elif layer.type == 'Dropout':
-        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
-        param = layer.dropout_param
-        add_mul(f, blob_index(bottom_name), SCALAR_OP, 1 - param.dropout_ratio, top_name)
+        pass
 
     elif layer.type == 'Eltwise':
         bottom0 = layer.bottom[0]
