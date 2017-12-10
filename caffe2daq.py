@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 import sys
 from google.protobuf import text_format
@@ -6,6 +6,7 @@ from caffe.proto import caffe_pb2
 import caffe
 import numpy as np
 import struct
+
 
 params = caffe_pb2.NetParameter()
 with open(sys.argv[1]) as f:
@@ -211,12 +212,12 @@ def findInplaceActivation(layer_name):
     for i, layer in enumerate(params.layer):
         if layer.name != layer_name:
             continue
-        top_blob_name = layer.top[0].encode('ascii', 'ignore')
+        top_blob_name = layer.top[0]
         for j in range(i + 1, len(params.layer)):
             layerJ = params.layer[j]
-            if layerJ.top[0].encode('ascii', 'ignore') == top_blob_name:
+            if layerJ.top[0] == top_blob_name:
                 if layerJ.type == 'ReLU':
-                    print "RELU", layer_name
+                    # print("RELU", layer_name)
                     skipped_layers.append(layerJ.name)
                     return ACTIVATION_RELU
                 break
@@ -230,7 +231,7 @@ for i, layer in enumerate(params.layer):
     if layer.name in skipped_layers:
         continue
 
-    top_name = layer.top[0].encode('ascii', 'ignore')
+    top_name = layer.top[0]
 
     if i == 0:
         if layer.type != "Input":
@@ -241,7 +242,7 @@ for i, layer in enumerate(params.layer):
 
 
     elif layer.type == 'Convolution':
-        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0]
         param = layer.convolution_param
         pad = param.pad[0] if param.pad != [] else 0
         pad_left = pad_right = pad_top = pad_bottom = pad
@@ -262,7 +263,7 @@ for i, layer in enumerate(params.layer):
 
     elif layer.type == 'Pooling':
         param = layer.pooling_param
-        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0]
 
         pad = param.pad
         pad_left = pad_right = pad_top = pad_bottom = pad
@@ -284,7 +285,7 @@ for i, layer in enumerate(params.layer):
 
 
     elif layer.type == 'InnerProduct':
-        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0]
         param = layer.inner_product_param
         input_dim = list(net.blobs[bottom_name].data.shape)
         weights = net.params[layer.name][0].data
@@ -299,14 +300,14 @@ for i, layer in enumerate(params.layer):
         add_FC(f, blob_index(bottom_name), top_name, num_output, activation, weights, bias)
 
     elif layer.type == 'ReLU':
-        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0]
         param = layer.relu_param
         if param.negative_slope != 0:
             raise ValueError("Non-zero ReLU's negative slope is not supported")
         add_ReLU(f, blob_index(bottom_name), top_name)
 
     elif layer.type == 'Softmax':
-        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0]
         add_softmax(f, blob_index(bottom_name), top_name, 1.)
 
     elif layer.type == 'Dropout':
@@ -315,8 +316,8 @@ for i, layer in enumerate(params.layer):
         add_mul(f, blob_index(bottom_name), SCALAR_OP, 1 - param.dropout_ratio, top_name)
 
     elif layer.type == 'Eltwise':
-        bottom0 = layer.bottom[0].encode('ascii', 'ignore')
-        bottom1 = layer.bottom[1].encode('ascii', 'ignore')
+        bottom0 = layer.bottom[0]
+        bottom1 = layer.bottom[1]
         param = layer.eltwise_param
         if param.operation == ELTWISE_SUM:
             add_add(f, blob_index(bottom0), TENSOR_OP, blob_index(bottom1), top_name)
@@ -326,7 +327,7 @@ for i, layer in enumerate(params.layer):
             raise ValueError("Unsupported EltwiseOp " + str(param.operation))
 
     elif layer.type == 'BatchNorm':
-        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0]
         scale_factor = net.params[layer.name][2].data[0]
         mean = net.params[layer.name][0].data / scale_factor
         var = net.params[layer.name][1].data / scale_factor + 1e-5
@@ -337,7 +338,7 @@ for i, layer in enumerate(params.layer):
         add_mul(f, blob_index(top_name), ARRAY_OP, 1 / np.sqrt(var), top_name)
 
     elif layer.type == 'Scale':
-        bottom_name = layer.bottom[0].encode('ascii', 'ignore')
+        bottom_name = layer.bottom[0]
         param = layer.scale_param
         multipiler = net.params[layer.name][0].data
         add_mul(f, blob_index(bottom_name), ARRAY_OP, multipiler, top_name)
@@ -346,8 +347,8 @@ for i, layer in enumerate(params.layer):
             add_add(f, blob_index(top_name), ARRAY_OP, bias, top_name)
 
     elif layer.type == 'Concat':
-        bottom0 = layer.bottom[0].encode('ascii', 'ignore')
-        bottom1 = layer.bottom[1].encode('ascii', 'ignore')
+        bottom0 = layer.bottom[0]
+        bottom1 = layer.bottom[1]
         param = layer.concat_param
         if param.axis != 1:
             raise ValueError("Unsupported concat layer's axis " + str(param.axis))
