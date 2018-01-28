@@ -7,7 +7,6 @@ import caffe
 import numpy as np
 import struct
 
-
 params = caffe_pb2.NetParameter()
 with open(sys.argv[1]) as f:
     text_format.Merge(f.read(), params)
@@ -58,17 +57,18 @@ STRING_END = 0
 
 TENSOR_OP = 0
 SCALAR_OP = 1
-ARRAY_OP = 2    # 1d array, for batchnorm
+ARRAY_OP = 2  # 1d array, for batchnorm
 
 ELTWISE_PROD = 0
 ELTWISE_SUM = 1
 ELTWISE_MAX = 2
 
-supported_type = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
-                  'BatchNorm', 'Scale', 'Concat']
-supported_activation = ['ReLU']
+supported_layers = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
+                    'BatchNorm', 'Scale', 'Concat']
+supported_activations = ['ReLU']
 
 skipped_layers = []
+
 
 def blob_index(blob_name):
     # blob.rIndex(blob_name)
@@ -98,23 +98,31 @@ def add_input(f, top_name, dim):
     layer_end(top_name)
 
 
-def add_max_pool(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+def add_max_pool(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height,
+                 filter_width,
                  activation):
-    write_bin_int_seq(f, [MAX_POOL, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top, PADDING_BOTTOM,
+    write_bin_int_seq(f, [MAX_POOL, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
+                          PADDING_BOTTOM,
                           pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
                           FILTER_WIDTH, filter_width, ACTIVATION, activation])
     layer_end(top_name)
 
-def add_ave_pool(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+
+def add_ave_pool(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height,
+                 filter_width,
                  activation):
     write_bin_int_seq(f, [AVE_POOL, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
-                          PADDING_BOTTOM, pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
+                          PADDING_BOTTOM, pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT,
+                          filter_height,
                           FILTER_WIDTH, filter_width, ACTIVATION, activation])
     layer_end(top_name)
 
-def add_conv(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+
+def add_conv(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height,
+             filter_width,
              num_output, activation, weight, bias=None):
-    write_bin_int_seq(f, [CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top, PADDING_BOTTOM,
+    write_bin_int_seq(f, [CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
+                          PADDING_BOTTOM,
                           pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
                           FILTER_WIDTH, filter_width, NUM_OUTPUT, num_output, ACTIVATION, activation])
 
@@ -208,7 +216,7 @@ def write_bin_int_seq(f, l):
         f.write(bin_int(x))
 
 
-def findInplaceActivation(layer_name):
+def find_inplace_activation(layer_name):
     for i, layer in enumerate(params.layer):
         if layer.name != layer_name:
             continue
@@ -225,7 +233,7 @@ def findInplaceActivation(layer_name):
 
 
 for i, layer in enumerate(params.layer):
-    if layer.type not in supported_type:
+    if layer.type not in supported_layers:
         raise ValueError("Not supported layer " + layer.type)
 
     if layer.name in skipped_layers:
@@ -240,7 +248,6 @@ for i, layer in enumerate(params.layer):
         param = layer.input_param
         add_input(f, top_name, param.shape[0].dim)
 
-
     elif layer.type == 'Convolution':
         bottom_name = layer.bottom[0]
         param = layer.convolution_param
@@ -254,12 +261,12 @@ for i, layer in enumerate(params.layer):
         weights = net.params[layer.name][0].data
         swapped_weights = np.swapaxes(np.swapaxes(weights, 1, 3), 1, 2)
 
-        bias = net.params[layer.name][1].data if param.bias_term else None #np.zeros(swapped_weights.shape[0])
-        activation = findInplaceActivation(top_name)
+        bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(swapped_weights.shape[0])
+        activation = find_inplace_activation(top_name)
 
-        add_conv(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,
+        add_conv(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
+                 filter_height, filter_width,
                  param.num_output, activation, swapped_weights, bias)
-
 
     elif layer.type == 'Pooling':
         param = layer.pooling_param
@@ -274,18 +281,18 @@ for i, layer in enumerate(params.layer):
         else:
             kernel_size = param.kernel_size
         filter_height = filter_width = kernel_size
-        activation = findInplaceActivation(top_name)
+        activation = find_inplace_activation(top_name)
 
         if param.pool == CAFFE_POOL_MAX:
-            add_max_pool(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
+            add_max_pool(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
+                         stride_y,
                          filter_height, filter_width, activation)
         elif param.pool == CAFFE_POOL_AVE:
-            add_ave_pool(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
+            add_ave_pool(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
+                         stride_y,
                          filter_height, filter_width, activation)
         else:
             raise ValueError("Not supported pool type")
-
-
 
     elif layer.type == 'InnerProduct':
         bottom_name = layer.bottom[0]
@@ -297,8 +304,8 @@ for i, layer in enumerate(params.layer):
             input_dim[0] = param.num_output
             weights = weights.reshape(input_dim)
             weights = np.swapaxes(np.swapaxes(weights, 1, 3), 1, 2)
-        bias = net.params[layer.name][1].data if param.bias_term else None #np.zeros(num_output)
-        activation = findInplaceActivation(top_name)
+        bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(num_output)
+        activation = find_inplace_activation(top_name)
 
         add_FC(f, blob_index(bottom_name), top_name, num_output, activation, weights, bias)
 
@@ -354,7 +361,6 @@ for i, layer in enumerate(params.layer):
         if param.axis != 1:
             raise ValueError("Unsupported concat layer's axis " + str(param.axis))
         add_concat(f, blob_index(bottom0), blob_index(bottom1), top_name, param.axis)
-
 
 f.write(bin_int(LAYER_END))
 
