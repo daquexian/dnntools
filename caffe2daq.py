@@ -64,7 +64,7 @@ ELTWISE_SUM = 1
 ELTWISE_MAX = 2
 
 supported_layers = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
-                    'BatchNorm', 'Scale', 'Concat']
+                    'BatchNorm', 'Scale', 'Concat', 'Power']
 supported_activations = ['ReLU']
 
 skipped_layers = []
@@ -361,6 +361,21 @@ for i, layer in enumerate(params.layer):
         if param.axis != 1:
             raise ValueError("Unsupported concat layer's axis " + str(param.axis))
         add_concat(f, blob_index(bottom0), blob_index(bottom1), top_name, param.axis)
+
+    elif layer.type == 'Power':
+        bottom_name = layer.bottom[0]
+        param = layer.power_param
+        power, scale, shift = param.power, param.scale, param.shift
+
+        internal_bottom_name = bottom_name
+        if scale != 1:
+            add_mul(f, blob_index(internal_bottom_name), SCALAR_OP, scale, top_name)
+            internal_bottom_name = top_name
+        if shift != 0:
+            add_add(f, blob_index(internal_bottom_name), SCALAR_OP, shift, top_name)
+            internal_bottom_name = top_name
+        if power != 1:
+            raise ValueError('Only power == 1 is supported')
 
 f.write(bin_int(LAYER_END))
 
