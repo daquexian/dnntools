@@ -33,6 +33,8 @@ MUL = 7
 ADD = 8
 RELU = 9
 CONCAT = 10
+LRN = 11
+DEPTH_CONV = 12
 
 ACTIVATION_NONE = 0
 ACTIVATION_RELU = 1
@@ -52,6 +54,10 @@ BIAS = 11
 ACTIVATION = 12
 TOP_NAME = 13
 BETA = 14
+LRN_ALPHA = 15
+LRN_BETA = 16
+LOCAL_SIZE = 17
+GROUP = 18
 
 STRING_END = 0
 
@@ -64,7 +70,7 @@ ELTWISE_SUM = 1
 ELTWISE_MAX = 2
 
 supported_layers = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
-                    'BatchNorm', 'Scale', 'Concat', 'Power']
+                    'BatchNorm', 'Scale', 'Concat', 'Power', 'LRN']
 supported_activations = ['ReLU']
 
 skipped_layers = []
@@ -119,8 +125,7 @@ def add_ave_pool(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, 
 
 
 def add_conv(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height,
-             filter_width,
-             num_output, activation, weight, bias=None):
+             filter_width,num_output, activation, weight, bias=None):
     write_bin_int_seq(f, [CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
                           PADDING_BOTTOM,
                           pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
@@ -134,9 +139,25 @@ def add_conv(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stri
         f.write(bin_int(BIAS))
         for x in bias.flatten():
             f.write(bin_float(x))
-
+    print("add conv has just been used!", pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width,num_output)
     layer_end(top_name)
 
+def add_dep_conv(f, bottom, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height,
+                 filter_width,num_output, activation, weight, group, bias = None):
+    write_bin_int_seq(f, [DEPTH_CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top, 
+                          PADDING_BOTTOM, pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
+                          FILTER_WIDTH, filter_width, NUM_OUTPUT, num_output, ACTIVATION, activation, GROUP, group])
+    
+    f.write(bin_int(WEIGHT))
+    for x in weight.flatten():
+        f.write(bin_float(x))
+
+    if bias is not None:
+        f.write(bin_int(BIAS))
+        for x in bias.flatten():
+            f.write(bin_float(x))
+    print("add depthwise conv has just been used!",pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width, num_output, group)
+    layer_end(top_name)
 
 def add_FC(f, bottom, top_name, num_output, activation, weight, bias=None):
     write_bin_int_seq(f, [FC, bottom, NUM_OUTPUT, num_output, ACTIVATION, activation])
@@ -203,6 +224,23 @@ def add_concat(f, input1, input2, top_name, axis):
         raise ValueError("Unsupported concat layer's axis")
 
 
+def add_LRN(f, bottom, top_name, local_size, alpha, beta):
+    #print(local_size, alpha, beta)
+    write_bin_int_seq(f, [LRN, bottom, LOCAL_SIZE, local_size])
+
+    f.write(bin_int(LRN_ALPHA))
+    f.write(bin_float(alpha))
+    f.write(bin_int(LRN_BETA))
+    f.write(bin_float(beta))
+
+    layer_end(top_name)
+
+'''
+def add_flatten(f, bottom, axis, end_axis):
+    write_bin_int_seq(f, [FLATTEN, bottom, AXIS, axis, END_AXIS, end_axis])
+    layer_end(top_name)
+'''
+
 def bin_int(n):
     return struct.pack('i', int(n))
 
@@ -264,9 +302,13 @@ for i, layer in enumerate(params.layer):
         bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(swapped_weights.shape[0])
         activation = find_inplace_activation(top_name)
 
-        add_conv(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
-                 filter_height, filter_width,
-                 param.num_output, activation, swapped_weights, bias)
+        if param.group != 1:
+            group = param.group
+            add_dep_conv(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
+                         stride_y, filter_height, filter_width, param.num_output, activation, swapped_weights, group, bias)
+        else:
+            add_conv(f, blob_index(bottom_name), top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, 
+                     stride_y, filter_height, filter_width, param.num_output, activation, swapped_weights, bias)
 
     elif layer.type == 'Pooling':
         param = layer.pooling_param
@@ -320,8 +362,15 @@ for i, layer in enumerate(params.layer):
         bottom_name = layer.bottom[0]
         add_softmax(f, blob_index(bottom_name), top_name, 1.)
 
-    elif layer.type == 'Dropout':
-        pass
+    elif layer.type == 'Dropout': pass
+
+    elif layer.type == 'LRN':
+        bottom_name = layer.bottom[0]
+        param = layer.lrn_param
+        local_size = param.local_size
+        alpha = param.alpha
+        beta = param.beta
+        add_LRN(f, blob_index(bottom_name), top_name, local_size, alpha, beta)
 
     elif layer.type == 'Eltwise':
         bottom0 = layer.bottom[0]
@@ -376,6 +425,22 @@ for i, layer in enumerate(params.layer):
             internal_bottom_name = top_name
         if power != 1:
             raise ValueError('Only power == 1 is supported')
+
+    '''
+    elif layer.type == 'Slice':
+    bottom_name = layer.bottom[0]
+    param = layer.slice_param
+    axis = param.axis if param.axis != [] else 1
+    slice_dim = param.slice_dim if param.slice.dim != [] else 1
+    while 
+
+    elif layer.type == 'Flatten':
+    bottom_name = layer.bottom[0]
+    param = layer.flatten.param
+    axis = param.axis
+    end_axis = param.end_axis if param.end_axis != [] else -1
+    add_flatten(f, blob_index(bottom_name), axis, end_axis)
+    '''
 
 f.write(bin_int(LAYER_END))
 
