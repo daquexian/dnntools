@@ -1,5 +1,6 @@
-from typing import IO, Any
+from typing import IO, Any, List, Union
 import struct
+import numpy as np
 
 LAYER_END = 0
 CONV = 1
@@ -36,11 +37,11 @@ SCALAR_OP = 1
 ARRAY_OP = 2  # 1d array, for batchnorm
 
 
-def bin_int(n):
+def bin_int(n: int) -> str:
     return struct.pack('i', int(n))
 
 
-def bin_float(n):
+def bin_float(n: Union[float, int]) -> str:
     return struct.pack('f', float(n))
 
 
@@ -58,11 +59,11 @@ class ModelWriter:
         self._file = file
         self._blobs = []
 
-    def blob_index(self, blob_name):
+    def blob_index(self, blob_name: str) -> int:
         # blob.rIndex(blob_name)
         return len(self._blobs) - self._blobs[-1::-1].index(blob_name) - 1
 
-    def layer_end(self, blob_name):
+    def layer_end(self, blob_name: str) -> None:
         self._file.write(bin_int(TOP_NAME))
         for c in blob_name:
             # write as int
@@ -77,14 +78,14 @@ class ModelWriter:
         self._blobs.append(blob_name)
 
     @add_layer(top_name_pos=1)
-    def add_input(self, top_name, dim):
+    def add_input(self, top_name: str, dim: List[int]) -> None:
         self._file.write(bin_int(INPUT))
         for d in dim:
             self._file.write(bin_int(d))
 
     @add_layer()
-    def add_max_pool(self, bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
-                     filter_height, filter_width, activation):
+    def add_max_pool(self, bottom_name: str, top_name: str, pad_left: int, pad_right: int, pad_top: int, pad_bottom: int, stride_x: int, stride_y: int,
+                     filter_height: int, filter_width: int, activation: int) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq(
             [MAX_POOL, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
@@ -93,8 +94,8 @@ class ModelWriter:
              FILTER_WIDTH, filter_width, ACTIVATION, activation])
 
     @add_layer()
-    def add_ave_pool(self, bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
-                     filter_height, filter_width, activation):
+    def add_ave_pool(self, bottom_name: str, top_name: str, pad_left: int, pad_right: int, pad_top: int, pad_bottom: int, stride_x: int, stride_y: int,
+                     filter_height: int, filter_width: int, activation: int) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq(
             [AVE_POOL, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
@@ -103,8 +104,9 @@ class ModelWriter:
              FILTER_WIDTH, filter_width, ACTIVATION, activation])
 
     @add_layer()
-    def add_conv(self, bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height,
-                 filter_width, num_output, activation, weight, bias=None):
+    def add_conv(self, bottom_name: str, top_name: str, pad_left: int, pad_right: int, pad_top: int, pad_bottom: int, stride_x: int, stride_y: int,
+                 filter_height: int,
+                 filter_width: int, num_output: int, activation: int, weight: np.ndarray, bias: np.ndarray = None) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq([CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
                                 PADDING_BOTTOM,
@@ -122,7 +124,7 @@ class ModelWriter:
 
     # noinspection PyPep8Naming
     @add_layer()
-    def add_FC(self, bottom_name, top_name, num_output, activation, weight, bias=None):
+    def add_FC(self, bottom_name: str, top_name: str, num_output: int, activation: int, weight: np.ndarray, bias: np.ndarray = None) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq([FC, bottom, NUM_OUTPUT, num_output, ACTIVATION, activation])
 
@@ -137,7 +139,7 @@ class ModelWriter:
 
     # noinspection PyPep8Naming
     @add_layer()
-    def add_ReLU(self, bottom_name, top_name, negative_slope):
+    def add_ReLU(self, bottom_name: str, top_name: str, negative_slope: float) -> None:
         bottom = self.blob_index(bottom_name)
         if negative_slope != 0:
             raise ValueError("Non-zero ReLU's negative slope is not supported")
@@ -145,13 +147,13 @@ class ModelWriter:
         self.write_bin_int_seq([RELU, bottom])
 
     @add_layer()
-    def add_softmax(self, bottom_name, top_name, beta):
+    def add_softmax(self, bottom_name: str, top_name: str, beta: float) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq([SOFTMAX, bottom, BETA])
         self._file.write(bin_float(beta))
 
     @add_layer(top_name_pos=4)
-    def add_add(self, input1, input2_type, input2, top_name):
+    def add_add(self, input1: str, input2_type: int, input2: Union[str, np.ndarray], top_name: str) -> None:
         input1_index = self.blob_index(input1)
         self.write_bin_int_seq([ADD, input1_index, input2_type])
         if input2_type == TENSOR_OP:
@@ -166,7 +168,7 @@ class ModelWriter:
                 self._file.write(bin_float(x))
 
     @add_layer(top_name_pos=4)
-    def add_mul(self, input1, input2_type, input2, top_name):
+    def add_mul(self, input1: str, input2_type: int, input2: Union[str, np.ndarray], top_name: str) -> None:
         input1_index = self.blob_index(input1)
         self.write_bin_int_seq([MUL, input1_index, input2_type])
         if input2_type == TENSOR_OP:
@@ -181,7 +183,7 @@ class ModelWriter:
                 self._file.write(bin_float(x))
 
     @add_layer(top_name_pos=3)
-    def add_concat(self, input1, input2, top_name, axis):
+    def add_concat(self, input1: str, input2: str, top_name: str, axis: int) -> None:
         if axis == 1:
             input1_index = self.blob_index(input1)
             input2_index = self.blob_index(input2)
@@ -189,11 +191,11 @@ class ModelWriter:
         else:
             raise ValueError("Unsupported concat layer's axis " + str(axis))
 
-    def write_bin_int_seq(self, l):
+    def write_bin_int_seq(self, l: List[int]) -> None:
         for x in l:
             self._file.write(bin_int(x))
 
-    def save(self):
+    def save(self) -> None:
         self._file.write(bin_int(LAYER_END))
 
         self._file.close()

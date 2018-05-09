@@ -28,7 +28,7 @@ skipped_layers = []
 
 
 
-def find_inplace_activation(params, layer_name):
+def find_inplace_activation(params: caffe_pb2.NetParameter, layer_name: str) -> int:
     for i, layer in enumerate(params.layer):
         if layer.name != layer_name:
             continue
