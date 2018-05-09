@@ -19,9 +19,9 @@ CAFFE_ELTWISE_MAX = 2
 ACTIVATION_NONE = 0
 ACTIVATION_RELU = 1
 
-supported_layers = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
+SUPPORTED_LAYERS = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
                     'BatchNorm', 'Scale', 'Concat', 'Power']
-supported_activations = ['ReLU']
+SUPPORTED_ACTIVATIONS = ['ReLU']
 
 skipped_layers = []
 
@@ -56,7 +56,7 @@ def main():
     model_writer = ModelWriter(f)
 
     for i, layer in enumerate(params.layer):
-        if layer.type not in supported_layers:
+        if layer.type not in SUPPORTED_LAYERS:
             raise ValueError("Not supported layer " + layer.type)
 
         if layer.name in skipped_layers:
