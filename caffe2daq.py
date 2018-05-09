@@ -153,7 +153,10 @@ def add_FC(f, bottom, top_name, num_output, activation, weight, bias=None):
     layer_end(top_name)
 
 
-def add_ReLU(f, bottom, top_name):
+def add_ReLU(f, bottom, top_name, negative_slope):
+    if negative_slope != 0:
+        raise ValueError("Non-zero ReLU's negative slope is not supported")
+
     write_bin_int_seq(f, [RELU, bottom])
 
     layer_end(top_name)
@@ -200,7 +203,7 @@ def add_concat(f, input1, input2, top_name, axis):
 
         layer_end(top_name)
     else:
-        raise ValueError("Unsupported concat layer's axis")
+        raise ValueError("Unsupported concat layer's axis " + str(param.axis))
 
 
 def bin_int(n):
@@ -312,9 +315,7 @@ for i, layer in enumerate(params.layer):
     elif layer.type == 'ReLU':
         bottom_name = layer.bottom[0]
         param = layer.relu_param
-        if param.negative_slope != 0:
-            raise ValueError("Non-zero ReLU's negative slope is not supported")
-        add_ReLU(f, blob_index(bottom_name), top_name)
+        add_ReLU(f, blob_index(bottom_name), top_name, param.negative_slope)
 
     elif layer.type == 'Softmax':
         bottom_name = layer.bottom[0]
@@ -358,8 +359,6 @@ for i, layer in enumerate(params.layer):
         bottom0 = layer.bottom[0]
         bottom1 = layer.bottom[1]
         param = layer.concat_param
-        if param.axis != 1:
-            raise ValueError("Unsupported concat layer's axis " + str(param.axis))
         add_concat(f, blob_index(bottom0), blob_index(bottom1), top_name, param.axis)
 
     elif layer.type == 'Power':
