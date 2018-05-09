@@ -50,7 +50,9 @@ def add_layer(top_name_pos=2):
         def __add_layer(*args, **kwargs):
             func(*args, **kwargs)
             args[0].layer_end(args[top_name_pos])
+
         return __add_layer
+
     return decorator
 
 
@@ -84,7 +86,9 @@ class ModelWriter:
             self._file.write(bin_int(d))
 
     @add_layer()
-    def add_max_pool(self, bottom_name: str, top_name: str, pad_left: int, pad_right: int, pad_top: int, pad_bottom: int, stride_x: int, stride_y: int,
+    def add_max_pool(self, bottom_name: str, top_name: str,
+                     pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
+                     stride_x: int, stride_y: int,
                      filter_height: int, filter_width: int, activation: int) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq(
@@ -94,7 +98,9 @@ class ModelWriter:
              FILTER_WIDTH, filter_width, ACTIVATION, activation])
 
     @add_layer()
-    def add_ave_pool(self, bottom_name: str, top_name: str, pad_left: int, pad_right: int, pad_top: int, pad_bottom: int, stride_x: int, stride_y: int,
+    def add_ave_pool(self, bottom_name: str, top_name: str,
+                     pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
+                     stride_x: int, stride_y: int,
                      filter_height: int, filter_width: int, activation: int) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq(
@@ -104,9 +110,11 @@ class ModelWriter:
              FILTER_WIDTH, filter_width, ACTIVATION, activation])
 
     @add_layer()
-    def add_conv(self, bottom_name: str, top_name: str, pad_left: int, pad_right: int, pad_top: int, pad_bottom: int, stride_x: int, stride_y: int,
-                 filter_height: int,
-                 filter_width: int, num_output: int, activation: int, weight: np.ndarray, bias: np.ndarray = None) -> None:
+    def add_conv(self, bottom_name: str, top_name: str,
+                 pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
+                 stride_x: int, stride_y: int,
+                 filter_height: int, filter_width: int, num_output: int, activation: int,
+                 weight: np.ndarray, bias: np.ndarray = None) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq([CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
                                 PADDING_BOTTOM,
@@ -124,7 +132,9 @@ class ModelWriter:
 
     # noinspection PyPep8Naming
     @add_layer()
-    def add_FC(self, bottom_name: str, top_name: str, num_output: int, activation: int, weight: np.ndarray, bias: np.ndarray = None) -> None:
+    def add_FC(self, bottom_name: str, top_name: str,
+               num_output: int, activation: int,
+               weight: np.ndarray, bias: np.ndarray = None) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq([FC, bottom, NUM_OUTPUT, num_output, ACTIVATION, activation])
 

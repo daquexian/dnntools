@@ -8,7 +8,6 @@ import numpy as np
 import model_writer as mw
 from model_writer import ModelWriter
 
-
 CAFFE_POOL_MAX = 0
 CAFFE_POOL_AVE = 1
 CAFFE_POOL_STOCHASTIC = 2
@@ -25,7 +24,6 @@ supported_layers = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', '
 supported_activations = ['ReLU']
 
 skipped_layers = []
-
 
 
 def find_inplace_activation(params: caffe_pb2.NetParameter, layer_name: str) -> int:
@@ -90,8 +88,8 @@ def main():
             activation = find_inplace_activation(params, top_name)
 
             model_writer.add_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y,
-                     filter_height, filter_width,
-                     param.num_output, activation, swapped_weights, bias)
+                                  filter_height, filter_width,
+                                  param.num_output, activation, swapped_weights, bias)
 
         elif layer.type == 'Pooling':
             param = layer.pooling_param
@@ -110,12 +108,12 @@ def main():
 
             if param.pool == CAFFE_POOL_MAX:
                 model_writer.add_max_pool(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
-                             stride_y,
-                             filter_height, filter_width, activation)
+                                          stride_y,
+                                          filter_height, filter_width, activation)
             elif param.pool == CAFFE_POOL_AVE:
                 model_writer.add_ave_pool(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
-                             stride_y,
-                             filter_height, filter_width, activation)
+                                          stride_y,
+                                          filter_height, filter_width, activation)
             else:
                 raise ValueError("Not supported pool type")
 
