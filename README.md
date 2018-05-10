@@ -4,10 +4,23 @@ Convert caffemodel to [DNNLibrary](https://github.com/daquexian/DNNLibrary)'s fo
 
 ## Usage
 
-Install caffe and pycaffe first.
+**Please install pycaffe first.**
 
-```
-python3 caffe2daq.py [prototxt] [caffemodel]
+Install this package by pip:
+
+```bash
+pip3 install dnntools
 ```
 
-It is WIP from some aspects -- not all layers and properties are support. But I might not have much time to continue working on it. So any PR is welcome.
+Use it in python like this:
+```bash
+import dnntools.caffe_converter
+
+dnntools.caffe_converter.convert('models/squeezenet/deploy.prototxt',
+                                 'models/squeezenet/squeezenet_v1.1.caffemodel',
+                                 'models/squeezenet/squeezenet.daq')
+```
+
+Not all layers and properties are support. But I will work on it. What's more I'm working on [onnx](https://github.com/onnx/onnx/) support. 
+
+Any PRs are welcome :)
