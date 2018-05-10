@@ -5,8 +5,9 @@ from google.protobuf import text_format
 from caffe.proto import caffe_pb2
 import caffe
 import numpy as np
-import model_writer as mw
-from model_writer import ModelWriter
+from dnntools import model_writer as mw
+from dnntools.model_writer import ModelWriter
+
 
 CAFFE_POOL_MAX = 0
 CAFFE_POOL_AVE = 1
@@ -42,23 +43,17 @@ def find_inplace_activation(params: caffe_pb2.NetParameter, layer_name: str) -> 
     return ACTIVATION_NONE
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Convert caffemodel to daq model')
-    parser.add_argument('prototxt', type=str, help='prototxt file of source caffe model')
-    parser.add_argument('caffemodel', type=str, help='caffemodel file of source caffe model')
-    parser.add_argument('dest', type=str, nargs='?', default='nnmodel.daq',
-                        help='filename of daq model (default "nnmodel.daq")')
-
-    args = parser.parse_args()
+def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
+    assert isinstance(prototxt, str) and isinstance(caffemodel, str), 'prototxt and caffemodel shoule be filename'
 
     params = caffe_pb2.NetParameter()
 
-    with open(args.prototxt) as f:
+    with open(prototxt) as f:
         text_format.Merge(f.read(), params)
 
-    net = caffe.Net(args.prototxt, args.caffemodel, caffe.TEST)
+    net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
-    out_filename = args.dest
+    out_filename = dest
     f = open(out_filename, 'wb')
 
     model_writer = ModelWriter(f)
@@ -205,6 +200,17 @@ def main():
                 raise ValueError('Only power == 1 is supported')
 
     model_writer.save()
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Convert caffemodel to daq model')
+    parser.add_argument('prototxt', type=str, help='prototxt file of source caffe model')
+    parser.add_argument('caffemodel', type=str, help='caffemodel file of source caffe model')
+    parser.add_argument('dest', type=str, nargs='?', default='nnmodel.daq',
+                        help='filename of daq model (default "nnmodel.daq")')
+
+    args = parser.parse_args()
+    convert(args.prototxt, args.caffemodel, args.dest)
 
 
 if __name__ == '__main__':
