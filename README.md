@@ -21,6 +21,6 @@ dnntools.caffe_converter.convert('models/squeezenet/deploy.prototxt',
                                  'models/squeezenet/squeezenet.daq')
 ```
 
-Not all layers and properties are support. But I will work on it. What's more I'm working on [onnx](https://github.com/onnx/onnx/) support. 
+Not all layers and properties are supported. But I will work on it. What's more I'm working on [onnx](https://github.com/onnx/onnx/) support. 
 
 Any PRs are welcome :)
