@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 
-import sys
+import argparse
 from google.protobuf import text_format
 from caffe.proto import caffe_pb2
 import caffe
@@ -43,14 +43,22 @@ def find_inplace_activation(params: caffe_pb2.NetParameter, layer_name: str) -> 
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Convert caffemodel to daq model')
+    parser.add_argument('prototxt', type=str, help='prototxt file of source caffe model')
+    parser.add_argument('caffemodel', type=str, help='caffemodel file of source caffe model')
+    parser.add_argument('dest', type=str, nargs='?', default='nnmodel.daq',
+                        help='filename of daq model (default "nnmodel.daq")')
+
+    args = parser.parse_args()
+
     params = caffe_pb2.NetParameter()
 
-    with open(sys.argv[1]) as f:
+    with open(args.prototxt) as f:
         text_format.Merge(f.read(), params)
 
-    net = caffe.Net(sys.argv[1], sys.argv[2], caffe.TEST)
+    net = caffe.Net(args.prototxt, args.caffemodel, caffe.TEST)
 
-    out_filename = sys.argv[3] if len(sys.argv) > 3 else 'nnmodel'
+    out_filename = args.dest
     f = open(out_filename, 'wb')
 
     model_writer = ModelWriter(f)
