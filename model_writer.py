@@ -37,11 +37,11 @@ SCALAR_OP = 1
 ARRAY_OP = 2  # 1d array, for batchnorm
 
 
-def bin_int(n: int) -> str:
+def bin_int(n: int) -> bytes:
     return struct.pack('i', int(n))
 
 
-def bin_float(n: Union[float, int]) -> str:
+def bin_float(n: Union[float, int]) -> bytes:
     return struct.pack('f', float(n))
 
 
