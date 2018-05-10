@@ -1,4 +1,4 @@
-# DNN Convert Tool
+# dnntools
 
 Convert caffemodel to [DNNLibrary](https://github.com/daquexian/DNNLibrary)'s format(I named this format "daq" for my ID "daquexian").
 
