@@ -6,7 +6,7 @@ Convert caffemodel to [DNNLibrary](https://github.com/daquexian/DNNLibrary)'s fo
 
 **Please install pycaffe first.**
 
-Install this package by pip:
+Install this package by pip (It only support Python3) :
 
 ```bash
 pip3 install dnntools
