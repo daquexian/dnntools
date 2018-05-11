@@ -215,8 +215,8 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 param = layer.scale_param
                 if param.num_axes != 1:
                     raise ValueError("Only scale.num_axes == 2 is supported.")
-                multipiler = net.params[layer.name][0].data
-                model_writer.add_mul(bottom_name, mw.ARRAY_OP, multipiler, top_name)
+                multiplier = net.params[layer.name][0].data
+                model_writer.add_mul(bottom_name, mw.ARRAY_OP, multiplier, top_name)
                 if param.bias_term:
                     bias = net.params[layer.name][1].data
                     model_writer.add_add(top_name, mw.ARRAY_OP, bias, top_name)
