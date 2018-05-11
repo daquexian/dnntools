@@ -152,6 +152,10 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 input_dim = list(net.blobs[bottom_name].data.shape)
                 weights = net.params[layer.name][0].data
                 num_output = param.num_output
+                if param.axis != 1:
+                    raise ValueError("Only inner_product.axis == 1 is supported.")
+                if param.transpose:
+                    raise ValueError("Only inner_product.transpose == True is supported")
                 if len(input_dim) == 4:
                     input_dim[0] = param.num_output
                     weights = weights.reshape(input_dim)
@@ -168,6 +172,9 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
 
             elif layer.type == 'Softmax':
                 bottom_name = layer.bottom[0]
+                param = layer.softmax_param
+                if param.axis != 1:
+                    raise ValueError("Only softmax.axis == 1 is supported.")
                 model_writer.add_softmax(bottom_name, top_name, 1.)
 
             elif layer.type == 'Dropout':
@@ -178,6 +185,8 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 bottom1 = layer.bottom[1]
                 param = layer.eltwise_param
                 if param.operation == CAFFE_ELTWISE_SUM:
+                    if np.count_nonzero(np.array(param.coeff) != 1) > 0:
+                        raise ValueError("Only all coefficients in sum == 1 is supported.")
                     model_writer.add_add(bottom0, mw.TENSOR_OP, bottom1, top_name)
                 elif param.operation == CAFFE_ELTWISE_PROD:
                     model_writer.add_mul(bottom0, mw.TENSOR_OP, bottom1, top_name)
@@ -186,9 +195,13 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
 
             elif layer.type == 'BatchNorm':
                 bottom_name = layer.bottom[0]
+                param = layer.batch_norm_param
+                if not param.use_global_stat:
+                    raise ValueError("Only batch_norm.use_global_stat is true is supported. "
+                                     "(Did you load model in train phase?)")
                 scale_factor = net.params[layer.name][2].data[0]
                 mean = net.params[layer.name][0].data / scale_factor
-                var = net.params[layer.name][1].data / scale_factor + 1e-5
+                var = net.params[layer.name][1].data / scale_factor + param.eps
 
                 model_writer.add_add(bottom_name, mw.ARRAY_OP, -mean, top_name)
                 # Append top into blobs so that the mul will use a new index as input
@@ -196,8 +209,12 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 model_writer.add_mul(top_name, mw.ARRAY_OP, 1 / np.sqrt(var), top_name)
 
             elif layer.type == 'Scale':
+                if len(layer.bottom) != 1:
+                    raise ValueError("Only a learnable Scale layer is supported.")
                 bottom_name = layer.bottom[0]
                 param = layer.scale_param
+                if param.num_axes != 1:
+                    raise ValueError("Only scale.num_axes == 2 is supported.")
                 multipiler = net.params[layer.name][0].data
                 model_writer.add_mul(bottom_name, mw.ARRAY_OP, multipiler, top_name)
                 if param.bias_term:
@@ -205,6 +222,8 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                     model_writer.add_add(top_name, mw.ARRAY_OP, bias, top_name)
 
             elif layer.type == 'Concat':
+                if len(layer.bottom) != 2:
+                    raise ValueError("Concat layer can only have 2 bottom layers for now.")
                 bottom0 = layer.bottom[0]
                 bottom1 = layer.bottom[1]
                 param = layer.concat_param
