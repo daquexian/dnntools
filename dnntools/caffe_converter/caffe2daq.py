@@ -98,6 +98,9 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
             group = param.group
             if group != 1:
                 raise ValueError("Depthwise convolution is not supported. A relevant PR is being reviewed.")
+            axis = param.axis
+            if axis != 1:
+                raise ValueError("Only axis == 1 is supported.")
 
             weights = net.params[layer.name][0].data
             swapped_weights = np.swapaxes(np.swapaxes(weights, 1, 3), 1, 2)
