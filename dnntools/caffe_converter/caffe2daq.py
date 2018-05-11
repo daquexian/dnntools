@@ -79,10 +79,25 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
             param = layer.convolution_param
             pad = param.pad[0] if param.pad != [] else 0
             pad_left = pad_right = pad_top = pad_bottom = pad
+            if param.pad_h != 0:
+                pad_top = pad_bottom = param.pad_h
+            if param.pad_w != 0:
+                pad_left = pad_right = param.pad_w
             stride = param.stride[0] if param.stride != [] else 1
             stride_x = stride_y = stride
+            if param.stride_h != 0:
+                stride_y = param.stride_h
+            if param.stride_w != 0:
+                stride_x  = param.stride_w
             kernel_size = param.kernel_size[0]
             filter_height = filter_width = kernel_size
+            if param.kernel_h != 0:
+                filter_height = param.kernel_h
+            if param.kernel_w != 0:
+                filter_width = param.kernel_w
+            group = param.group
+            if group != 1:
+                raise ValueError("Depthwise convolution is not supported. A relevant PR is being reviewed.")
 
             weights = net.params[layer.name][0].data
             swapped_weights = np.swapaxes(np.swapaxes(weights, 1, 3), 1, 2)
@@ -100,13 +115,24 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
 
             pad = param.pad
             pad_left = pad_right = pad_top = pad_bottom = pad
+            if param.pad_h != 0:
+                pad_top = pad_bottom = param.pad_h
+            if param.pad_w != 0:
+                pad_left = pad_right = param.pad_w
             stride = param.stride
             stride_x = stride_y = stride
-            if param.global_pooling:
-                kernel_size = -1
-            else:
-                kernel_size = param.kernel_size
+            if param.stride_h != 0:
+                stride_y = param.stride_h
+            if param.stride_w != 0:
+                stride_x  = param.stride_w
+            kernel_size = param.kernel_size
             filter_height = filter_width = kernel_size
+            if param.kernel_h != 0:
+                filter_height = param.kernel_h
+            if param.kernel_w != 0:
+                filter_width = param.kernel_w
+            if param.global_pooling:
+                filter_height, filter_width = -1, -1
             activation = find_inplace_activation(params, top_name)
 
             if param.pool == CAFFE_POOL_MAX:
