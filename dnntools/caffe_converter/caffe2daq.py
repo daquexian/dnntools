@@ -102,7 +102,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                     raise ValueError("Only axis == 1 is supported.")
 
                 weights = net.params[layer.name][0].data
-                swapped_weights = np.swapaxes(np.swapaxes(weights, 1, 3), 1, 2)
+                swapped_weights = np.moveaxis(weights, 1, 3)
 
                 bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(swapped_weights.shape[0])
                 activation = find_inplace_activation(params, top_name)
@@ -159,7 +159,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 if len(input_dim) == 4:
                     input_dim[0] = param.num_output
                     weights = weights.reshape(input_dim)
-                    weights = np.swapaxes(np.swapaxes(weights, 1, 3), 1, 2)
+                    weights = np.moveaxis(weights, 1, 3)
                 bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(num_output)
                 activation = find_inplace_activation(params, top_name)
 
