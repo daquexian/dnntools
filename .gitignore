@@ -6,3 +6,4 @@ build/
 models/
 .idea/
 main.py
+test.sh
