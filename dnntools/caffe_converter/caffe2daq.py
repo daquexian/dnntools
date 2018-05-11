@@ -36,7 +36,6 @@ def find_inplace_activation(params: caffe_pb2.NetParameter, layer_name: str) -> 
             layerJ = params.layer[j]
             if layerJ.top[0] == top_blob_name:
                 if layerJ.type == 'ReLU':
-                    # print("RELU", layer_name)
                     skipped_layers.append(layerJ.name)
                     return ACTIVATION_RELU
                 break
