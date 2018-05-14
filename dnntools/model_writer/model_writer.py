@@ -13,6 +13,8 @@ MUL = 7
 ADD = 8
 RELU = 9
 CONCAT = 10
+LRN = 11
+DEPTH_CONV = 12
 
 PARAM_END = 0
 PADDING_LEFT = 1
@@ -29,6 +31,10 @@ BIAS = 11
 ACTIVATION = 12
 TOP_NAME = 13
 BETA = 14
+LRN_ALPHA = 15
+LRN_BETA = 16
+LOCAL_SIZE = 17
+GROUP = 18
 
 STRING_END = 0
 
@@ -108,6 +114,27 @@ class ModelWriter:
              PADDING_BOTTOM, pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT,
              filter_height,
              FILTER_WIDTH, filter_width, ACTIVATION, activation])
+
+    @add_layer()
+    def add_dep_conv(self, bottom_name: str, top_name: str,
+                     pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
+                     stride_x: int, stride_y: int,
+                     filter_height: int, filter_width: int, num_output: int, activation: int,
+                     weight: np.ndarray, group: int, bias: np.ndarray = None) -> None:
+        bottom = self.blob_index(bottom_name)
+        self.write_bin_int_seq([DEPTH_CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
+                              PADDING_BOTTOM, pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
+                              FILTER_WIDTH, filter_width, NUM_OUTPUT, num_output, ACTIVATION, activation, GROUP, group])
+
+        self._file.write(bin_int(WEIGHT))
+        for x in weight.flatten():
+            self._file.write(bin_float(x))
+
+        if bias is not None:
+            self._file.write(bin_int(BIAS))
+            for x in bias.flatten():
+                self._file.write(bin_float(x))
+        print("add depthwise conv has just been used!",pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width, num_output, group)
 
     @add_layer()
     def add_conv(self, bottom_name: str, top_name: str,
@@ -200,6 +227,17 @@ class ModelWriter:
             self.write_bin_int_seq([CONCAT, 2, input1_index, input2_index, 3])
         else:
             raise ValueError("Unsupported concat layer's axis " + str(axis))
+
+    @add_layer()
+    def add_LRN(self, bottom_name: str, top_name: str, local_size: int, alpha: float, beta: float) -> None:
+        #print(local_size, alpha, beta)
+        bottom = self.blob_index(bottom_name)
+        self.write_bin_int_seq([LRN, bottom, LOCAL_SIZE, local_size])
+
+        self._file.write(bin_int(LRN_ALPHA))
+        self._file.write(bin_float(alpha))
+        self._file.write(bin_int(LRN_BETA))
+        self._file.write(bin_float(beta))
 
     def write_bin_int_seq(self, l: List[int]) -> None:
         for x in l:
