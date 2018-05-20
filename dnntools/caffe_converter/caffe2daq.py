@@ -7,6 +7,7 @@ import caffe
 import numpy as np
 from dnntools import model_writer as mw
 from dnntools.model_writer import ModelWriter
+import typing
 
 
 CAFFE_POOL_MAX = 0
@@ -24,10 +25,8 @@ SUPPORTED_LAYERS = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', '
                     'BatchNorm', 'Scale', 'Concat', 'Power']
 SUPPORTED_ACTIVATIONS = ['ReLU']
 
-skipped_layers = []
 
-
-def find_inplace_activation(params: caffe_pb2.NetParameter, layer_name: str) -> int:
+def find_inplace_activation(params: caffe_pb2.NetParameter, layer_name: str, skipped_layers: typing.List[str]) -> int:
     for i, layer in enumerate(params.layer):
         if layer.name != layer_name:
             continue
@@ -44,6 +43,8 @@ def find_inplace_activation(params: caffe_pb2.NetParameter, layer_name: str) -> 
 
 def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
     assert isinstance(prototxt, str) and isinstance(caffemodel, str), 'prototxt and caffemodel shoule be filename'
+
+    skipped_layers = []
 
     params = caffe_pb2.NetParameter()
 
@@ -104,7 +105,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 swapped_weights = np.moveaxis(weights, 1, 3)
 
                 bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(swapped_weights.shape[0])
-                activation = find_inplace_activation(params, top_name)
+                activation = find_inplace_activation(params, top_name, skipped_layers)
 
                 model_writer.add_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom,
                                       stride_x, stride_y, filter_height, filter_width,
@@ -134,7 +135,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                     filter_width = param.kernel_w
                 if param.global_pooling:
                     filter_height, filter_width = -1, -1
-                activation = find_inplace_activation(params, top_name)
+                activation = find_inplace_activation(params, top_name, skipped_layers)
 
                 if param.pool == CAFFE_POOL_MAX:
                     model_writer.add_max_pool(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom,
@@ -160,7 +161,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                     weights = weights.reshape(input_dim)
                     weights = np.moveaxis(weights, 1, 3)
                 bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(num_output)
-                activation = find_inplace_activation(params, top_name)
+                activation = find_inplace_activation(params, top_name, skipped_layers)
 
                 model_writer.add_FC(bottom_name, top_name, num_output, activation, weights, bias)
 
