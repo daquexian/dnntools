@@ -87,7 +87,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 if param.stride_h != 0:
                     stride_y = param.stride_h
                 if param.stride_w != 0:
-                    stride_x  = param.stride_w
+                    stride_x = param.stride_w
                 kernel_size = param.kernel_size[0]
                 filter_height = filter_width = kernel_size
                 if param.kernel_h != 0:
@@ -126,7 +126,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 if param.stride_h != 0:
                     stride_y = param.stride_h
                 if param.stride_w != 0:
-                    stride_x  = param.stride_w
+                    stride_x = param.stride_w
                 kernel_size = param.kernel_size
                 filter_height = filter_width = kernel_size
                 if param.kernel_h != 0:
