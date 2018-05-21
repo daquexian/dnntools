@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='dnntools',
-    version='0.1.3',
+    version='0.1.4',
     description='Convert caffemodel to DNNLibrary\'s .daq file',
     author='daquexian',
     author_email='daquexian566@gmail.com',
@@ -13,7 +13,7 @@ setup(
     keywords='deep-learning NNAPI DNNLibrary Android',
     install_requires=[
         'numpy',
-        'protobuf'
+        'protobuf<=3.1.0.post1'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
