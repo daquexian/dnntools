@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='dnntools',
-    version='0.1.3',
+    version='0.1.5',
     description='Convert caffemodel to DNNLibrary\'s .daq file',
     author='daquexian',
     author_email='daquexian566@gmail.com',
