@@ -4,9 +4,9 @@ Convert caffemodel to [DNNLibrary](https://github.com/daquexian/DNNLibrary)'s fo
 
 ## Usage
 
-**Please install pycaffe first.**
 
-Install this package by pip (It only support Python3.5+ for I used type annotation) :
+
+Install this package by pip (It only support Python3.5+ for I used type annotation, **and you need install pycaffe first.**) :
 
 ```bash
 pip3 install dnntools
@@ -24,3 +24,7 @@ dnntools.caffe_converter.convert('models/squeezenet/deploy.prototxt',
 Not all layers and properties are supported. But I will work on it. What's more I'm working on [onnx](https://github.com/onnx/onnx/) support. 
 
 Any PRs are welcome :)
+
+## Have a problem?
+
+Some users met segment fault when converting models. One of the possible reasons is incompatible protobuf version. Please refer to [this issue](https://github.com/daquexian/dnntools/issues/5).
