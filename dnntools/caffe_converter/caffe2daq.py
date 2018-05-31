@@ -22,7 +22,7 @@ ACTIVATION_NONE = 0
 ACTIVATION_RELU = 1
 
 SUPPORTED_LAYERS = ['Convolution', 'InnerProduct', 'Pooling', 'Input', 'ReLU', 'Softmax', 'Dropout', 'Eltwise',
-                    'BatchNorm', 'Scale', 'Concat', 'Power']
+                    'BatchNorm', 'Scale', 'Concat', 'Power', 'LRN']
 SUPPORTED_ACTIVATIONS = ['ReLU']
 
 
@@ -94,9 +94,6 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                     filter_height = param.kernel_h
                 if param.kernel_w != 0:
                     filter_width = param.kernel_w
-                group = param.group
-                if group != 1:
-                    raise ValueError("Depthwise convolution is not supported. A relevant PR is being reviewed.")
                 axis = param.axis
                 if axis != 1:
                     raise ValueError("Only axis == 1 is supported.")
@@ -107,9 +104,18 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(swapped_weights.shape[0])
                 activation = find_inplace_activation(params, top_name, skipped_layers)
 
-                model_writer.add_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom,
-                                      stride_x, stride_y, filter_height, filter_width,
-                                      param.num_output, activation, swapped_weights, bias)
+                input_dim = list(net.blobs[bottom_name].data.shape)
+                input_channel = input_dim[1]
+                group = param.group
+                if group == input_channel:
+                    model_writer.add_dep_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
+                                 stride_y, filter_height, filter_width, param.num_output, activation, swapped_weights, group, bias)
+                elif group == 1:
+                    model_writer.add_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom,
+                                          stride_x, stride_y, filter_height, filter_width,
+                                          param.num_output, activation, swapped_weights, bias)
+                else:
+                    raise ValueError("Only depthwise convolution or vanilla convolution are supported.")
 
             elif layer.type == 'Pooling':
                 param = layer.pooling_param
@@ -179,6 +185,14 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
 
             elif layer.type == 'Dropout':
                 pass
+
+            elif layer.type == 'LRN':
+                bottom_name = layer.bottom[0]
+                param = layer.lrn_param
+                local_size = param.local_size
+                alpha = param.alpha
+                beta = param.beta
+                model_writer.add_LRN(bottom_name, top_name, local_size, alpha, beta)
 
             elif layer.type == 'Eltwise':
                 bottom0 = layer.bottom[0]
