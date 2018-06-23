@@ -1,4 +1,5 @@
-from typing import IO, Any, List, Union, Callable
+from typing import IO, Any, List, Union, Callable, Tuple
+import functools
 import struct
 import numpy as np
 
@@ -15,6 +16,7 @@ RELU = 9
 CONCAT = 10
 LRN = 11
 DEPTH_CONV = 12
+STRIDED_SLICE = 13
 
 PARAM_END = 0
 PADDING_LEFT = 1
@@ -252,6 +254,20 @@ class ModelWriter:
         self._file.write(bin_float(alpha))
         self._file.write(bin_int(LRN_BETA))
         self._file.write(bin_float(beta))
+
+    @add_layer()
+    def add_strided_slice(self, bottom_name: str, top_name: str, slice_dim: List[Tuple[int, int, int]],
+                          begin_mask: List[bool], end_mask: List[bool], shrink_axis: List[bool]=None) -> None:
+        bottom_index = self.blob_index(bottom_name)
+        starts, ends, strides = zip(slice_dim)
+        begin_mask_int = functools.reduce(int.__or__, [1 << i if begin_mask[i] else 0 for i in range(len(starts))], 0)
+        end_mask_int = functools.reduce(int.__or__, [1 << i if end_mask[i] else 0 for i in range(len(ends))], 0)
+        if shrink_axis is None:
+            shrink_axis = [False] * len(starts)
+        shrink_axis_int = functools.reduce(int.__or__, [1 << i if shrink_axis[i] else 0
+                                                         for i in range(len(shrink_axis))], 0)
+        self.write_bin_int_seq([STRIDED_SLICE, bottom_index, *starts, *ends, *strides,
+                                begin_mask_int, end_mask_int, shrink_axis_int])
 
     def write_bin_int_seq(self, l: List[int]) -> None:
         for x in l:
