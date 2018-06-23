@@ -134,7 +134,6 @@ class ModelWriter:
             self._file.write(bin_int(BIAS))
             for x in bias.flatten():
                 self._file.write(bin_float(x))
-        print("add depthwise conv has just been used!",pad_left, pad_right, pad_top, pad_bottom, stride_x, stride_y, filter_height, filter_width, num_output, group)
 
     @add_layer()
     def add_conv(self, bottom_name: str, top_name: str,
