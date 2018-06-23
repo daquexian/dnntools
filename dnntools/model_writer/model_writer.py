@@ -1,4 +1,4 @@
-from typing import IO, Any, List, Union
+from typing import IO, Any, List, Union, Callable
 import struct
 import numpy as np
 
@@ -51,7 +51,13 @@ def bin_float(n: Union[float, int]) -> bytes:
     return struct.pack('f', float(n))
 
 
-def add_layer(top_name_pos=2):
+def add_layer(top_name_pos: int = 2) -> Callable:
+    """
+    A decorator function, run model_writer.layer_end(top_name) in the end of model_writer.add_xxxx
+    Check out add_input document for an example
+    :param top_name_pos:
+    :return:
+    """
     def decorator(func):
         def __add_layer(*args, **kwargs):
             func(*args, **kwargs)
@@ -87,6 +93,16 @@ class ModelWriter:
 
     @add_layer(top_name_pos=1)
     def add_input(self, top_name: str, dim: List[int]) -> None:
+        """
+        Check out add_layer document.
+
+        add_input with add_layer(top_name_pos=1) is same as
+
+        self._file.write(bin_int(INPUT))
+        for d in dim:
+            self._file.write(bin_int(d))
+        self.layer_end(top_name)
+        """
         self._file.write(bin_int(INPUT))
         for d in dim:
             self._file.write(bin_int(d))
