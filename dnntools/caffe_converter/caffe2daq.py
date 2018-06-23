@@ -236,12 +236,8 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                     model_writer.add_add(top_name, mw.ARRAY_OP, bias, top_name)
 
             elif layer.type == 'Concat':
-                if len(layer.bottom) != 2:
-                    raise ValueError("Concat layer can only have 2 bottom layers for now.")
-                bottom0 = layer.bottom[0]
-                bottom1 = layer.bottom[1]
                 param = layer.concat_param
-                model_writer.add_concat(bottom0, bottom1, top_name, param.axis)
+                model_writer.add_concat(layer.bottom, top_name, param.axis)
 
             elif layer.type == 'Power':
                 bottom_name = layer.bottom[0]

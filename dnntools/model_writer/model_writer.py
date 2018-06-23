@@ -234,12 +234,11 @@ class ModelWriter:
             for x in input2.flatten():
                 self._file.write(bin_float(x))
 
-    @add_layer(top_name_pos=3)
-    def add_concat(self, input1: str, input2: str, top_name: str, axis: int) -> None:
+    @add_layer()
+    def add_concat(self, inputs: List[str], top_name: str, axis: int) -> None:
         if axis == 1:
-            input1_index = self.blob_index(input1)
-            input2_index = self.blob_index(input2)
-            self.write_bin_int_seq([CONCAT, 2, input1_index, input2_index, 3])
+            input_indexes = list(map(self.blob_index, inputs))
+            self.write_bin_int_seq([CONCAT, len(input_indexes), *input_indexes, 3])
         else:
             raise ValueError("Unsupported concat layer's axis " + str(axis))
 
