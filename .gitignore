@@ -8,3 +8,4 @@ models/
 main.py
 test.sh
 package.sh
+%ign%*
