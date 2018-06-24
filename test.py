@@ -27,7 +27,7 @@ def download(url, filename):
 
 def main():
     parser = argparse.ArgumentParser(description='Test DNNLibrary')
-    parser.add_argument('-s', dest='settings', type=str, help='test settings json file', default='test_settings_27.json')
+    parser.add_argument('-s', dest='settings', type=str, help='test settings json file, default test_settings_27.json', default='test_settings_27.json')
     parser.add_argument('infer_bin', type=str, help='dnn_infer_simple binary file')
     args = parser.parse_args()
 
