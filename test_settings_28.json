@@ -1,0 +1,12 @@
+[
+    {
+        "name": "group convolution",
+        "prototxt_url": "https://github.com/daquexian/dnnlibrary_test_models/blob/master/group_conv/group.prototxt",
+        "caffemodel_url": "https://github.com/daquexian/dnnlibrary_test_models/raw/master/group_conv/group.caffemodel",
+        "prototxt": "./models/group_conv/group.prototxt",
+        "caffemodel": "./models/group_conv/group.caffemodel",
+        "input": "data",
+        "output": "conv2"
+    }
+]
+
