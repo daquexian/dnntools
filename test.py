@@ -49,7 +49,11 @@ def main():
         nhwc_shape = (input_shape[0], input_shape[2], input_shape[3], input_shape[1])   # reshape to nhwc so the input is the same as that in dnn_infer_simple
         input_blob.data[...] = np.moveaxis(np.reshape(np.arange(input_blob.data.size), nhwc_shape), -1, 1)    # NHWC to NCHW back
         net.forward()
-        expected = output_blob.data[0].flatten()   # Only use the first sample when batch size > 1
+        expected = output_blob.data[0:1]   # Only use the first sample when batch size > 1
+        if s.get('transpose', False):
+            expected = np.moveaxis(expected, 1, -1).flatten()
+        else:
+            expected = expected.flatten()
 
         daq = os.path.join(tempfile._get_default_tempdir(), next(tempfile._get_candidate_names()))
         txt = os.path.join(tempfile._get_default_tempdir(), next(tempfile._get_candidate_names()))
