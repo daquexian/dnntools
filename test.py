@@ -60,15 +60,16 @@ def main():
         cc.convert(s['prototxt'], s['caffemodel'], daq)
 
         os.system("adb push {} /data/local/tmp/".format(daq))
-        os.system("adb shell /data/local/tmp/dnn_infer_simple /data/local/tmp/{} prob".format(os.path.basename(daq)))
+        os.system("adb shell /data/local/tmp/dnn_infer_simple /data/local/tmp/{} {}".format(os.path.basename(daq), s['output']))
         os.system("adb pull /data/local/tmp/result {}".format(txt))
         os.system("adb shell rm /data/local/tmp/result")
+        os.system("adb shell rm /data/local/tmp/{}".format(os.path.basename(daq)))
 
         actual = np.loadtxt(txt)
 
         print('====================')
         try:
-            np.testing.assert_array_almost_equal(expected, actual)
+            np.testing.assert_array_almost_equal(expected, actual, decimal=3)
             print('{} passed'.format(s['name']))
         except AssertionError as e:
             print('{} failed:'.format(s['name']))
