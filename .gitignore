@@ -4,6 +4,7 @@ dist/
 build/
 **/__pycache__/
 models/
+models_bak/
 .idea/
 main.py
 test.sh
