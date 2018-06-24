@@ -237,7 +237,7 @@ class ModelWriter:
                 self._file.write(bin_float(x))
 
     @add_layer()
-    def add_concat(self, inputs: List[str], top_name: str, axis: int) -> None:
+    def add_concat(self, inputs: List[str], top_name: str, axis: int=1) -> None:
         if axis == 1:
             input_indexes = list(map(self.blob_index, inputs))
             self.write_bin_int_seq([CONCAT, len(input_indexes), *input_indexes, 3])
@@ -259,7 +259,9 @@ class ModelWriter:
     def add_strided_slice(self, bottom_name: str, top_name: str, slice_dim: List[Tuple[int, int, int]],
                           begin_mask: List[bool], end_mask: List[bool], shrink_axis: List[bool]=None) -> None:
         bottom_index = self.blob_index(bottom_name)
-        starts, ends, strides = zip(slice_dim)
+
+        slice_dim = [x if x is not None else (0, 0, 0) for x in slice_dim]
+        starts, ends, strides = zip(*slice_dim)
         begin_mask_int = functools.reduce(int.__or__, [1 << i if begin_mask[i] else 0 for i in range(len(starts))], 0)
         end_mask_int = functools.reduce(int.__or__, [1 << i if end_mask[i] else 0 for i in range(len(ends))], 0)
         if shrink_axis is None:

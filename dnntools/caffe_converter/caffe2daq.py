@@ -116,17 +116,15 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                                           stride_x, stride_y, filter_height, filter_width,
                                           num_output, activation, swapped_weights, bias)
                 else:
-                    num_output /= group
-                    input_channel /= group
+                    num_output //= group
+                    input_channel //= group
                     for g in range(group):
                         bottom_group_name = "{}_{}".format(bottom_name, g)
                         top_group_name = "{}_{}".format(top_name, g)
                         model_writer.add_strided_slice(bottom_name, bottom_group_name,
-                                                       [None, None, None,
-                                                        (input_channel*g, input_channel*(g+1), 1)
-                                                        ],
+                                                       [None, None, None, (input_channel*g, input_channel*(g+1), 1)],
                                                        [True, True, True, False],
-                                                       [True, True, True, False],
+                                                       [True, True, True, False]
                                                        )
                         group_weight = swapped_weights[num_output*g:num_output*(g+1)]
                         group_bias = bias[num_output*g:num_output*(g+1)] if bias is not None else None
@@ -134,8 +132,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                                               pad_left, pad_right, pad_top, pad_bottom,
                                               stride_x, stride_y, filter_height, filter_width,
                                               num_output, activation, group_weight, group_bias)
-
-                    raise ValueError("Only depthwise convolution or vanilla convolution are supported.")
+                    model_writer.add_concat(["{}_{}".format(top_name, g) for g in range(group)], top_name)
 
             elif layer.type == 'Pooling':
                 param = layer.pooling_param
