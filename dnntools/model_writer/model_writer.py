@@ -260,7 +260,7 @@ class ModelWriter:
                           begin_mask: List[bool], end_mask: List[bool], shrink_axis: List[bool]=None) -> None:
         bottom_index = self.blob_index(bottom_name)
 
-        slice_dim = [x if x is not None else (0, 0, 0) for x in slice_dim]
+        slice_dim = [x if x is not None else (0, 0, 1) for x in slice_dim]
         starts, ends, strides = zip(*slice_dim)
         begin_mask_int = functools.reduce(int.__or__, [1 << i if begin_mask[i] else 0 for i in range(len(starts))], 0)
         end_mask_int = functools.reduce(int.__or__, [1 << i if end_mask[i] else 0 for i in range(len(ends))], 0)
