@@ -1,0 +1,11 @@
+[
+    {
+        "name": "squeezenet",
+        "prototxt_url": "https://github.com/daquexian/dnnlibrary_test_models/blob/master/squeezenet/deploy.prototxt",
+        "caffemodel_url": "https://github.com/daquexian/dnnlibrary_test_models/raw/master/squeezenet/squeezenet_v1.1.caffemodel",
+        "prototxt": "./models/squeezenet/deploy.prototxt",
+        "caffemodel": "./models/squeezenet/squeezenet_v1.1.caffemodel",
+        "input": "data",
+        "output": "prob"
+    }
+]
