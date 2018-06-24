@@ -1,12 +1,13 @@
 [
     {
         "name": "group convolution",
-        "prototxt_url": "https://github.com/daquexian/dnnlibrary_test_models/blob/master/group_conv/group.prototxt",
-        "caffemodel_url": "https://github.com/daquexian/dnnlibrary_test_models/raw/master/group_conv/group.caffemodel",
+        "prototxt_url": "https://raw.githubusercontent.com/daquexian/dnnlibrary_test_models/master/group_conv/group.prototxt",
+        "caffemodel_url": "https://raw.githubusercontent.com/daquexian/dnnlibrary_test_models/master/group_conv/group.caffemodel",
         "prototxt": "./models/group_conv/group.prototxt",
         "caffemodel": "./models/group_conv/group.caffemodel",
         "input": "data",
-        "output": "conv2"
+        "output": "conv2",
+        "transpose": true
     }
 ]
 
