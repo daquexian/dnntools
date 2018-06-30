@@ -76,24 +76,44 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
             elif layer.type == 'Convolution':
                 bottom_name = layer.bottom[0]
                 param = layer.convolution_param
-                pad = param.pad[0] if param.pad != [] else 0
-                pad_left = pad_right = pad_top = pad_bottom = pad
+
+                if len(param.pad) == 0:
+                    pad_left = pad_right = pad_top = pad_bottom = 0
+                elif len(param.pad) == 1:
+                    pad_left = pad_right = pad_top = pad_bottom = param.pad[0]
+                elif len(param.pad) == 2:
+                    pad_top, pad_bottom, pad_left, pad_right = param.pad[0], param.pad[0], param.pad[1], param.pad[1]
+                else:
+                    raise ValueError("Only conv 2d is supported.")
                 if param.pad_h != 0:
                     pad_top = pad_bottom = param.pad_h
                 if param.pad_w != 0:
                     pad_left = pad_right = param.pad_w
-                stride = param.stride[0] if param.stride != [] else 1
-                stride_x = stride_y = stride
+
+                if len(param.stride) == 0:
+                    stride_x = stride_y = 1
+                elif len(param.stride) == 1:
+                    stride_x = stride_y = param.stride[0]
+                elif len(param.stride) == 2:
+                    stride_y, stride_x = param.stride[0], param.stride[1]
+                else:
+                    raise ValueError("Only conv 2d is supported.")
                 if param.stride_h != 0:
                     stride_y = param.stride_h
                 if param.stride_w != 0:
                     stride_x = param.stride_w
-                kernel_size = param.kernel_size[0]
-                filter_height = filter_width = kernel_size
+
+                if len(param.kernel_size) == 1:
+                    filter_height = filter_width = param.kernel_size[0]
+                elif len(param.kernel_size) == 2:
+                    filter_height, filter_width = param.kernel_size[0], param.kernel_size[1]
+                else:
+                    raise ValueError("Only conv 2d is supported.")
                 if param.kernel_h != 0:
                     filter_height = param.kernel_h
                 if param.kernel_w != 0:
                     filter_width = param.kernel_w
+
                 axis = param.axis
                 if axis != 1:
                     raise ValueError("Only axis == 1 is supported.")
