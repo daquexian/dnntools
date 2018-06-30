@@ -114,6 +114,15 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 if param.kernel_w != 0:
                     filter_width = param.kernel_w
 
+                if len(param.dilation) == 0:
+                    dilation = 1
+                elif len(param.dilation) == 1:
+                    dilation = param.dilation[0]
+                else:
+                    raise ValueError("Only dilation == 1 is supported.")
+                if dilation != 1:
+                    raise ValueError("Dilation == {}, only dilation == 1 is supported.".format(dilation))
+
                 axis = param.axis
                 if axis != 1:
                     raise ValueError("Only axis == 1 is supported.")
