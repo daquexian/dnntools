@@ -134,11 +134,11 @@ class ModelWriter:
              FILTER_WIDTH, filter_width, ACTIVATION, activation])
 
     @add_layer()
-    def add_dep_conv(self, bottom_name: str, top_name: str,
-                     pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
-                     stride_x: int, stride_y: int,
-                     filter_height: int, filter_width: int, num_output: int, activation: int,
-                     weight: np.ndarray, group: int, bias: np.ndarray = None) -> None:
+    def add_nnapi_dw_conv(self, bottom_name: str, top_name: str,
+                          pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
+                          stride_x: int, stride_y: int,
+                          filter_height: int, filter_width: int, num_output: int, activation: int,
+                          weight: np.ndarray, group: int, bias: np.ndarray = None) -> None:
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq([DEPTH_CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
                               PADDING_BOTTOM, pad_bottom, STRIDE_X, stride_x, STRIDE_Y, stride_y, FILTER_HEIGHT, filter_height,
@@ -154,11 +154,11 @@ class ModelWriter:
                 self._file.write(bin_float(x))
 
     @add_layer()
-    def add_conv(self, bottom_name: str, top_name: str,
-                 pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
-                 stride_x: int, stride_y: int,
-                 filter_height: int, filter_width: int, num_output: int, activation: int,
-                 weight: np.ndarray, bias: np.ndarray = None) -> None:
+    def add_nnapi_non_dw_conv(self, bottom_name: str, top_name: str,
+                              pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
+                              stride_x: int, stride_y: int,
+                              filter_height: int, filter_width: int, num_output: int, activation: int,
+                              weight: np.ndarray, bias: np.ndarray = None):
         bottom = self.blob_index(bottom_name)
         self.write_bin_int_seq([CONV, bottom, PADDING_LEFT, pad_left, PADDING_RIGHT, pad_right, PADDING_TOP, pad_top,
                                 PADDING_BOTTOM,
@@ -173,6 +173,39 @@ class ModelWriter:
             self._file.write(bin_int(BIAS))
             for x in bias.flatten():
                 self._file.write(bin_float(x))
+
+    def add_conv(self, bottom_name: str, top_name: str,
+                 pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
+                 stride_x: int, stride_y: int, dilation: int, group: int,
+                 filter_height: int, filter_width: int, num_output: int, activation: int,
+                 weight: np.ndarray, bias: np.ndarray = None) -> None:
+        bottom = self.blob_index(bottom_name)
+
+        input_channel_per_group = weight.shape[3]
+        if group == 1:
+            self.add_nnapi_non_dw_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom,
+                                       stride_x, stride_y, filter_height, filter_width,
+                                       num_output, activation, weight, bias)
+        elif input_channel_per_group == 1:
+            self.add_nnapi_dw_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
+                                   stride_y, filter_height, filter_width, num_output, activation, weight, group, bias)
+        else:
+            num_output_per_group = num_output // group
+            for g in range(group):
+                bottom_group_name = "{}_{}".format(bottom_name, g)
+                top_group_name = "{}_{}".format(top_name, g)
+                self.add_strided_slice(bottom_name, bottom_group_name,
+                                               [None, None, None, (input_channel_per_group*g, input_channel_per_group*(g+1), 1)],
+                                               [True, True, True, False],
+                                               [True, True, True, False]
+                                               )
+                group_weight = weight[num_output_per_group * g:num_output_per_group * (g + 1)]
+                group_bias = bias[num_output_per_group * g:num_output_per_group * (g + 1)] if bias is not None else None
+                self.add_nnapi_non_dw_conv(bottom_group_name, top_group_name,
+                                           pad_left, pad_right, pad_top, pad_bottom,
+                                           stride_x, stride_y, filter_height, filter_width,
+                                           num_output_per_group, activation, group_weight, group_bias)
+            self.add_concat(["{}_{}".format(top_name, g) for g in range(group)], top_name)
 
     # noinspection PyPep8Naming
     @add_layer()
