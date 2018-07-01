@@ -6,8 +6,7 @@
         "prototxt": "./models/group_conv/group.prototxt",
         "caffemodel": "./models/group_conv/group.caffemodel",
         "input": "data",
-        "output": "conv2",
-        "transpose": true
+        "output": "conv2"
     }
 ]
 
