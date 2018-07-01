@@ -7,5 +7,14 @@
         "caffemodel": "./models/squeezenet/squeezenet_v1.1.caffemodel",
         "input": "data",
         "output": "prob"
+    },
+    {
+        "name": "depthwise",
+        "prototxt_url": "https://raw.githubusercontent.com/daquexian/dnnlibrary_test_models/master/depthwise/dw.prototxt",
+        "caffemodel_url": "https://raw.githubusercontent.com/daquexian/dnnlibrary_test_models/master/depthwise/dw.caffemodel",
+        "prototxt": "./models/depthwise/dw.prototxt",
+        "caffemodel": "./models/depthwise/dw.caffemodel",
+        "input": "data",
+        "output": "conv3"
     }
 ]
