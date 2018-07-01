@@ -128,8 +128,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                     raise ValueError("Only axis == 1 is supported.")
                 num_output = param.num_output
 
-                weights = net.params[layer.name][0].data
-                swapped_weights = np.moveaxis(weights, 1, 3)
+                weights = net.params[layer.name][0].data    # shape: [depth_out, depth_in, filter_height, filter_width]
 
                 bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(swapped_weights.shape[0])
                 activation = find_inplace_activation(params, top_name, skipped_layers)
@@ -138,13 +137,16 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 input_channel = input_dim[1]
                 group = param.group
                 if group == input_channel:
+                    swapped_weights = np.moveaxis(weights, 0, 3)    # shape: [1, filter_height, filter_width, depth_out]
                     model_writer.add_dep_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
                                  stride_y, filter_height, filter_width, num_output, activation, swapped_weights, group, bias)
                 elif group == 1:
+                    weights = np.moveaxis(weights, 1, 3)    # shape: [depth_out, filter_height, filter_width, depth_in]
                     model_writer.add_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom,
                                           stride_x, stride_y, filter_height, filter_width,
-                                          num_output, activation, swapped_weights, bias)
+                                          num_output, activation, weights, bias)
                 else:
+                    weights = np.moveaxis(weights, 1, 3)    # shape: [depth_out, filter_height, filter_width, depth_in]
                     num_output //= group
                     input_channel //= group
                     for g in range(group):
@@ -155,7 +157,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                                                        [True, True, True, False],
                                                        [True, True, True, False]
                                                        )
-                        group_weight = swapped_weights[num_output*g:num_output*(g+1)]
+                        group_weight = weights[num_output*g:num_output*(g+1)]
                         group_bias = bias[num_output*g:num_output*(g+1)] if bias is not None else None
                         model_writer.add_conv(bottom_group_name, top_group_name,
                                               pad_left, pad_right, pad_top, pad_bottom,
