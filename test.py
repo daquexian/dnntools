@@ -50,7 +50,7 @@ def main():
         input_blob.data[...] = np.moveaxis(np.reshape(np.arange(input_blob.data.size), nhwc_shape), -1, 1)    # NHWC to NCHW back
         net.forward()
         expected = output_blob.data[0:1]   # Only use the first sample when batch size > 1
-        if s.get('transpose', False):
+        if s.get('transpose', True):
             expected = np.moveaxis(expected, 1, -1).flatten()
         else:
             expected = expected.flatten()
@@ -74,6 +74,9 @@ def main():
         except AssertionError as e:
             print('{} failed:'.format(s['name']))
             print(str(e))
+            print(expected)
+            print('-----')
+            print(actual)
 
 
 

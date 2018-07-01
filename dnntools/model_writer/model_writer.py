@@ -178,18 +178,21 @@ class ModelWriter:
                  pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
                  stride_x: int, stride_y: int, dilation: int, group: int,
                  filter_height: int, filter_width: int, num_output: int, activation: int,
-                 weight: np.ndarray, bias: np.ndarray = None) -> None:
+                 caffe_weight: np.ndarray, bias: np.ndarray = None) -> None:
         bottom = self.blob_index(bottom_name)
 
-        input_channel_per_group = weight.shape[3]
+        input_channel_per_group = caffe_weight.shape[1]   # shape: [depth_out, depth_in, filter_height, filter_width]
         if group == 1:
+            weight = np.moveaxis(caffe_weight, 1, 3)    # shape: [depth_out, filter_height, filter_width, depth_in]
             self.add_nnapi_non_dw_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom,
                                        stride_x, stride_y, filter_height, filter_width,
                                        num_output, activation, weight, bias)
         elif input_channel_per_group == 1:
+            weight = np.moveaxis(caffe_weight, 0, 3)    # shape: [1, filter_height, filter_width, depth_out]
             self.add_nnapi_dw_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom, stride_x,
                                    stride_y, filter_height, filter_width, num_output, activation, weight, group, bias)
         else:
+            weight = np.moveaxis(caffe_weight, 1, 3)    # shape: [depth_out, filter_height, filter_width, depth_in]
             num_output_per_group = num_output // group
             for g in range(group):
                 bottom_group_name = "{}_{}".format(bottom_name, g)

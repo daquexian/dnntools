@@ -15,6 +15,6 @@
         "prototxt": "./models/depthwise/dw.prototxt",
         "caffemodel": "./models/depthwise/dw.caffemodel",
         "input": "data",
-        "output": "conv3"
+        "output": "conv1"
     }
 ]

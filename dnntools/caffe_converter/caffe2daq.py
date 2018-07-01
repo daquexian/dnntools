@@ -128,8 +128,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                     raise ValueError("Only axis == 1 is supported.")
                 num_output = param.num_output
 
-                weights = net.params[layer.name][0].data
-                swapped_weights = np.moveaxis(weights, 1, 3)
+                weights = net.params[layer.name][0].data    # shape: [depth_out, depth_in, filter_height, filter_width]
 
                 bias = net.params[layer.name][1].data if param.bias_term else None  # np.zeros(swapped_weights.shape[0])
                 activation = find_inplace_activation(params, top_name, skipped_layers)
@@ -137,7 +136,7 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 group = param.group
                 model_writer.add_conv(bottom_name, top_name, pad_left, pad_right, pad_top, pad_bottom,
                                       stride_x, stride_y, dilation, group, filter_height, filter_width,
-                                      num_output, activation, swapped_weights, bias)
+                                      num_output, activation, weights, bias)
 
             elif layer.type == 'Pooling':
                 param = layer.pooling_param
