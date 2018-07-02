@@ -1,5 +1,6 @@
 from typing import IO, Any, List, Union, Callable, Tuple
 import functools
+import itertools
 import struct
 import numpy as np
 
@@ -17,6 +18,8 @@ CONCAT = 10
 LRN = 11
 DEPTH_CONV = 12
 STRIDED_SLICE = 13
+SPACE_TO_BATCH_ND = 14
+BATCH_TO_SPACE_ND = 15
 
 PARAM_END = 0
 PADDING_LEFT = 1
@@ -37,6 +40,8 @@ LRN_ALPHA = 15
 LRN_BETA = 16
 LOCAL_SIZE = 17
 GROUP = 18
+BLOCK_SIZE = 19
+PADDING_FOR_S2B = 20
 
 STRING_END = 0
 
@@ -174,12 +179,35 @@ class ModelWriter:
             for x in bias.flatten():
                 self._file.write(bin_float(x))
 
+    @add_layer()
+    def add_space_to_batch_nd(self, bottom_name: str, top_name: str,
+                              block_sizes: List[int], paddings: List[Tuple[int, int]]):
+        bottom = self.blob_index(bottom_name)
+        paddings = list(functools.reduce(itertools.chain, map(list, paddings)))
+        self.write_bin_int_seq([SPACE_TO_BATCH_ND, bottom, BLOCK_SIZE, *block_sizes, PADDING_FOR_S2B, *paddings])
+
+    @add_layer()
+    def add_batch_to_space_nd(self, bottom_name: str, top_name: str,
+                              block_sizes: List[int]):
+        bottom = self.blob_index(bottom_name)
+        self.write_bin_int_seq([BATCH_TO_SPACE_ND, bottom, BLOCK_SIZE, *block_sizes])
+
     def add_conv(self, bottom_name: str, top_name: str,
                  pad_left: int, pad_right: int, pad_top: int, pad_bottom: int,
                  stride_x: int, stride_y: int, dilation: int, group: int,
                  filter_height: int, filter_width: int, num_output: int, activation: int,
                  caffe_weight: np.ndarray, bias: np.ndarray = None) -> None:
         bottom = self.blob_index(bottom_name)
+
+        if dilation != 1:
+            s2b_name = "{}_s2b".format(bottom_name)
+            b2s_name = "{}_b2s".format(bottom_name)
+            paddings = [(0, 0), (pad_left, pad_right), (pad_top, pad_bottom), (0, 0)]
+            self.add_space_to_batch_nd(bottom_name, s2b_name, [dilation, dilation], paddings)
+            self.add_conv(bottom_name, b2s_name, 0, 0, 0, 0, stride_x, stride_y, 1, group,
+                          filter_height, filter_width, num_output, activation, caffe_weight, bias)
+            self.add_batch_to_space_nd(b2s_name, top_name, [dilation, dilation])
+            return
 
         input_channel_per_group = caffe_weight.shape[1]   # shape: [depth_out, depth_in, filter_height, filter_width]
         if group == 1:
