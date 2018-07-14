@@ -68,6 +68,7 @@ def add_layer(top_name_pos: int = 2) -> Callable:
     def decorator(func):
         def __add_layer(*args, **kwargs):
             func(*args, **kwargs)
+            print("Layer endding of {} is being added".format(args[top_name_pos]))
             args[0].layer_end(args[top_name_pos])
 
         return __add_layer

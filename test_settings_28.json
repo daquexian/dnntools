@@ -7,6 +7,16 @@
         "caffemodel": "./models/group_conv/group.caffemodel",
         "input": "data",
         "output": "conv2"
+    },
+    {
+        "name": "dilated convolution",
+        "prototxt_url": "https://raw.githubusercontent.com/daquexian/dnnlibrary_test_models/master/dilated_conv/dilated.pt",
+        "caffemodel_url": "https://raw.githubusercontent.com/daquexian/dnnlibrary_test_models/master/dilated_conv/dilated.caffemodel",
+        "prototxt": "./models/dilated_conv/dilated.prototxt",
+        "caffemodel": "./models/dilated_conv/dilated.caffemodel",
+        "input": "data",
+        "output": "conv2"
     }
+
 ]
 

@@ -119,9 +119,9 @@ def convert(prototxt: str, caffemodel: str, dest: str = 'nnmodel.daq') -> None:
                 elif len(param.dilation) == 1:
                     dilation = param.dilation[0]
                 else:
-                    raise ValueError("Only dilation == 1 is supported.")
-                if dilation != 1:
-                    raise ValueError("Dilation == {}, only dilation == 1 is supported.".format(dilation))
+                    raise ValueError("Only one dilation is supported.")
+                # if dilation != 1:
+                    # raise ValueError("Dilation == {}, only dilation == 1 is supported.".format(dilation))
 
                 axis = param.axis
                 if axis != 1:
