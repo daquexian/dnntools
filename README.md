@@ -1,5 +1,7 @@
 # dnntools
 
+**dnntools is deprecated and DNNLibrary has switched to ONNX model. Please use onnx2daq in [DNNLibrary](https://github.com/daquexian/dnnlibrary).**
+
 ![PyPI](https://img.shields.io/pypi/v/dnntools.svg)
 
 Convert caffemodel to [DNNLibrary](https://github.com/daquexian/DNNLibrary)'s format(I named this format "daq" for my ID "daquexian").
